@@ -1,6 +1,14 @@
+/*
+Lijnvolger versie 0.1
+Groep J
+
+Deze lijnvolger gebruikt maar één sensor!
+*/
+
 #define Speed 30
 #define SearchTime 100
 #define SearchTimeplus 50
+
 task main()
 {
 	SetSensorLight(IN_2);

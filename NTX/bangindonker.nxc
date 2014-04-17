@@ -1,0 +1,22 @@
+/*
+BangInHetDonker versie 0.1
+Groep J
+*/
+
+task main()
+{
+	SetSensorLight(IN_2);
+	OnFwd(OUT_AB, 40);
+
+ 	while (true)
+ 	{
+		if (Sensor(IN_2) < 40)
+		{
+			OnRev(OUT_A, 40);
+			OnFwd(OUT_B, 40);
+
+			Wait(1000);
+		}
+		OnFwd(OUT_AB, 40);
+ 	}
+}
