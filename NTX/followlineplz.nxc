@@ -1,0 +1,44 @@
+#define Speed 30
+#define SearchTime 100
+#define SearchTimeplus 50
+task main()
+{
+	SetSensorLight(IN_2);
+	int black = Sensor(IN_2);
+	while (true)
+	{
+		int extendedSearchTime = SearchTime;
+		while(Sensor(IN_2) > (black+5))
+		{
+			if(Sensor(IN_2) > (black+5))//left?
+			{
+				OnFwd(OUT_A, Speed);
+				OnRev(OUT_B, Speed);
+				Wait(extendedSearchTime);
+				if(Sensor(IN_2) > (black+5))
+				{
+					OnFwd(OUT_B, Speed);
+					OnRev(OUT_A, Speed);
+					Wait(extendedSearchTime);
+				}
+			}
+			if(Sensor(IN_2) > (black+5))//right?
+			{
+				OnFwd(OUT_B, Speed);
+				OnRev(OUT_A, Speed);
+				Wait(extendedSearchTime);
+				if(Sensor(IN_2) > (black+5))
+				{
+				 	OnFwd(OUT_A, Speed);
+					OnRev(OUT_B, Speed);
+					Wait(extendedSearchTime);
+				}
+			}
+			extendedSearchTime += SearchTimeplus;
+		}
+		if(Sensor(IN_2) <= (black+5))
+		{
+			OnFwd(OUT_AB, Speed);
+		}
+	}
+}
