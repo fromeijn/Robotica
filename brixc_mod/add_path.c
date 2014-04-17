@@ -1,13 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
 
 FILE * InputFile;
-
 #define BufSize 256
 char buf[BufSize][BufSize];
-
 char addres[BufSize] = "C:\\BricxCC\\API\\";
 
 int main (int argc, char* argv[]) {
