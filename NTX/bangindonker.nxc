@@ -1,21 +1,25 @@
 /*
-BangInHetDonker versie 0.1
+BangInHetDonker versie 0.2
 Groep J
 */
+#define Threshold 5
 
 task main()
 {
 	SetSensorLight(IN_2);
+	int baseline = Sensor(IN_2);
 	OnFwd(OUT_AB, 40);
 
  	while (true)
  	{
-		if (Sensor(IN_2) < 40)
+		if (Sensor(IN_2) < (baseline-Threshold))
 		{
+			OnRev(OUT_AB, 40);
+			Wait(350);
+
 			OnRev(OUT_A, 40);
 			OnFwd(OUT_B, 40);
-
-			Wait(1000);
+			Wait(500);
 		}
 		OnFwd(OUT_AB, 40);
  	}
