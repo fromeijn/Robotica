@@ -1,0 +1,197 @@
+/*
+Navigate in grid versie 0.1
+Groep J
+*/
+#define FOLLOW_LINE 0
+#define LEFT 0
+#define CENTER 1
+#define RIGHT 2
+
+unsigned char grid_counter = 0;      // Amount of grid lines driven
+unsigned char grid_lane_counter = 0; // Amount of grid lanes found this line
+unsigned char grid_lanes = 5;        // Total amount of lanes on this lines
+unsigned char grid_lines = 3;        // Total straight lines to follow before changing anything
+
+unsigned char lane_visible = 0;      // value is true of the robot is on a lane
+
+unsigned char left_bm = 1 << 2;
+unsigned char center_bm = 1 << 1;
+unsigned char right_bm = 1 << 0;
+
+unsigned int motorLeft = OUT_B;
+unsigned int motorRight = OUT_A;
+unsigned int sensorLeft = IN_3;
+unsigned int sensorCenter = IN_2;
+unsigned int sensorRight = IN_1;
+
+unsigned int cruiseSpeed = 90;
+
+unsigned int calibrateWhite[3];
+unsigned int calibrateBlack[3];
+unsigned int whiteThreshold = 15;
+unsigned int blackThreshold = 10;
+
+unsigned int currentTask = FOLLOW_LINE;
+
+unsigned int sensorLine;
+
+void calibrate(void);
+void FollowLine(void);
+void updateLine(void);
+void drawInfo(void);
+
+void FollowLine() {
+
+     drawInfo();
+     
+     // Sensor: ? ? 1
+     // Type: lane visible but check if it was not before visible. We don't want to
+     // run this code multiple times on each lane!
+     if( ( sensorLine & right_bm) && !(lane_visible) ) {
+
+         lane_visible = 1;
+         grid_lane_counter++;
+         
+         if(grid_lane_counter >= grid_lanes) {
+         
+          OnFwd(motorLeft, cruiseSpeed);
+          OnFwd(motorRight, 0);
+          Wait(500);
+          
+          grid_lane_counter = 0;
+          grid_counter++;
+          
+          if(grid_counter >= grid_lines) {
+          
+            grid_counter = 0;
+            grid_lanes--;
+            
+            if(grid_lines > 2) {
+            
+              grid_lines--;
+              
+            }
+          }
+         }
+
+     } else
+     
+     // Sensor: ? ? 0
+     // Type: No lane, reset lane_visible
+     if( !( sensorLine & right_bm) ) {
+     
+          lane_visible = 0;
+          
+     }
+     
+     // Sensor: 1 ? 0
+     // Type: Line on left sensor, trim movement to the left!
+     if( ( sensorLine & left_bm ) && !(sensorLine & right_bm) ) {
+     
+         OnFwd(motorRight, cruiseSpeed);
+         OnFwd(motorLeft, cruiseSpeed - 15);
+         
+     } else
+     
+     // Sensor: 0 1 0
+     // Type: Line in the center, we are on track! No need to slow down so let's go full speed :)
+     if( !(sensorLine & left_bm ) && ( sensorLine & center_bm ) && !(sensorLine & right_bm) ) {
+
+         OnFwd(motorRight, cruiseSpeed + 10);
+         OnFwd(motorLeft, cruiseSpeed + 10);
+
+     }  else
+     
+     // Sensor: 0 0 0
+     // Type: Eh, we lost the line, we will probably find it back on our right side
+     if( !(sensorLine & left_bm ) && !(sensorLine & center_bm ) && !(sensorLine & right_bm) ) {
+
+         OnFwd(motorRight, cruiseSpeed - 10);
+         OnFwd(motorLeft, cruiseSpeed);
+
+     }
+}
+
+void Calibrate() {
+
+     ClearScreen();
+     TextOut(0, LCD_LINE1, "Calibrate white");
+     while( ! ButtonPressed(BTNCENTER, false) );
+
+     Wait(500);
+     calibrateWhite[RIGHT] = Sensor(sensorRight);
+     calibrateWhite[CENTER] = Sensor(sensorCenter);
+     calibrateWhite[LEFT] = Sensor(sensorLeft);
+
+     ClearScreen();
+     TextOut(0, LCD_LINE1, "Calibrate black");
+     while( ! ButtonPressed(BTNCENTER, false));
+
+     Wait(500);
+     calibrateBlack[RIGHT] = Sensor(sensorRight);
+     calibrateBlack[CENTER] = Sensor(sensorCenter);
+     calibrateBlack[LEFT] = Sensor(sensorLeft);
+
+}
+
+void updateLine() {
+
+  sensorLine = (Sensor(sensorLeft) < (calibrateBlack[LEFT] + whiteThreshold)) << 2;
+  sensorLine |= (Sensor(sensorCenter) < (calibrateBlack[CENTER] + whiteThreshold)) << 1;
+  sensorLine |= (Sensor(sensorRight) < (calibrateBlack[RIGHT] + whiteThreshold)) << 0;
+  
+}
+
+void drawInfo() {
+
+     ClearScreen();
+     if(sensorLine & left_bm) {
+     
+       TextOut(0, LCD_LINE2, "<--");
+       
+     }
+     if(sensorLine & center_bm) {
+     
+       TextOut(30, LCD_LINE2, "(-)");
+       
+     }
+     if(sensorLine & right_bm) {
+     
+       TextOut(60, LCD_LINE2, "-->");
+       
+     }
+     
+     NumOut(0, LCD_LINE3, grid_lane_counter);
+     NumOut(0, LCD_LINE4, grid_counter);
+     NumOut(0, LCD_LINE5, grid_lanes);
+}
+
+task main() {
+
+     SetSensorLight(sensorLeft);
+     SetSensorLight(sensorCenter);
+     SetSensorLight(sensorRight);
+
+     Calibrate();
+     
+     ClearScreen();
+     TextOut(0, LCD_LINE1, "Ready to start.");
+     while( ! ButtonPressed(BTNCENTER, false));
+
+     while(1) {
+     
+              // Update sensor values
+              updateLine();
+
+
+              switch(currentTask) {
+
+                case FOLLOW_LINE:
+                  FollowLine();
+                break;
+
+              }
+
+     }
+
+}
