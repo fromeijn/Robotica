@@ -8,6 +8,7 @@
 #include <avr/io.h>
 #include "MFRC552.h"
 
+uint8_t spi_transfer(uint8_t data);
 
 uchar serNum[5];
 
