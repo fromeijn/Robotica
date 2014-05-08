@@ -150,7 +150,7 @@ void setup() {
   
   pinMode(chipSelectPin,OUTPUT);             // Set digital pin 10 as OUTPUT to connect it to the RFID /ENABLE pin 
     digitalWrite(chipSelectPin, LOW);          // Activate the RFID reader
-  pinMode(NRSTPD,OUTPUT);               // Set digital pin 9 , Not Reset and Power-down
+  pinMode(NRSTPD,OUTPUT);               // Set digital pin 10 , Not Reset and Power-down
     digitalWrite(NRSTPD, HIGH);
 
   MFRC522_Init();  
@@ -170,11 +170,11 @@ void loop()
 		status = MFRC522_Request(PICC_REQIDL, str);	
 		if (status == MI_OK)
 		{
-                        /*Serial.println("Card detected");
-			Serial.print(str[0],BIN);
-                        Serial.print(" , ");
-			Serial.print(str[1],BIN);
-                        Serial.println(" ");*/
+                        //Serial.println("Card detected");
+			//Serial.print(str[0],BIN);
+                        //Serial.print(" , ");
+			//Serial.print(str[1],BIN);
+                        //Serial.println(" ");
 		}
 
 		//防冲撞，返回卡的序列号 4字节
@@ -185,32 +185,34 @@ void loop()
 
                         Serial.println("The card's number is  : ");
 			Serial.print(serNum[0]);
-                        /*Serial.print(" , ");
-			Serial.print(serNum[1],BIN);
                         Serial.print(" , ");
-			Serial.print(serNum[2],BIN);
+			Serial.print(serNum[1]);
                         Serial.print(" , ");
-			Serial.print(serNum[3],BIN);
+			Serial.print(serNum[2]);
                         Serial.print(" , ");
-			Serial.print(serNum[4],BIN);*/
+			Serial.print(serNum[3]);
+                        Serial.print(" , ");
+			Serial.print(serNum[4]);
                         Serial.println(" ");
                         
                         // Should really check all pairs, but for now we'll just use the first
                      
-                        if(serNum[0] == 45) {
-                          Serial.println("Hello Dedier");
-                          digitalWrite(13, HIGH);
-                          delay(3000);
+                        if(serNum[0] == 60) {
+                          Serial.println("Hello Steve");
+                          digitalWrite(5, HIGH);
+                          delay(5000);
+                          digitalWrite(5, LOW);
                           
-                        } else if(serNum[0] == 228) {
-                          Serial.println("Hello Merel");
-                          digitalWrite(13, LOW);
-                          delay(3000);
+                        } else if(serNum[0] == 25) {
+                          Serial.println("Hello Linda");
+                          digitalWrite(5, HIGH);
+                          delay(5000);
+                          digitalWrite(5, LOW);
                         } else      {               
                           Serial.println("Incorrect");
-                          digitalWrite(13, HIGH);
+                          digitalWrite(6, HIGH);
                           delay(5000);
-                          digitalWrite(13, LOW);
+                          digitalWrite(6, LOW);
                         }
                         //delay(5000);
 		}
