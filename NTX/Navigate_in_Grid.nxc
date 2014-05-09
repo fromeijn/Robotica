@@ -7,10 +7,29 @@ Groep J
 #define CENTER 1
 #define RIGHT 2
 
-unsigned char grid_counter = 0;      // Amount of grid lines driven
-unsigned char grid_lane_counter = 0; // Amount of grid lanes found this line
-unsigned char grid_lanes = 5;        // Total amount of lanes on this lines
-unsigned char grid_lines = 3;        // Total straight lines to follow before changing anything
+#define NORTH 0
+#define EAST 1
+#define SOUTH 2
+#define WEST 3
+
+/*
+      N
+      ^
+      |
+W <--- --->  E
+      |
+     \/
+     S
+
+*/
+unsigned char direction = 0;
+unsigned char posX = 0;
+unsigned char posY = 0;
+
+unsigned char lane_count = 0;
+
+unsigned char grid_size_x= 5;
+unsigned char grid_size_y = 5;
 
 unsigned char lane_visible = 0;      // value is true of the robot is on a lane
 
@@ -40,6 +59,43 @@ void FollowLine(void);
 void updateLine(void);
 void drawInfo(void);
 
+void updatePos() {
+
+     switch(direction) {
+     
+       case NORTH:
+         posY++;
+       break;
+       
+       case EAST:
+          posX++;
+       break;
+       
+       case SOUTH:
+          posY--;
+       break;
+       
+       case WEST:
+         posX--;
+       break;
+     
+     }
+     
+     if(posX < 0) { posX = 0; }
+     if(posX > grid_size_x) { posX = grid_size_x; }
+     if(posY < 0) { posY = 0; }
+     if(posY > grid_size_y) { posY = grid_size_y; }
+}
+
+void turnDegrees(unsigned char degrees) {
+ direction++;
+ if(direction > 3) direction = 0;
+ OnFwd(motorLeft, 60);
+ OnFwd(motorRight, -60);
+ Wait(300);
+ 
+}
+
 void FollowLine() {
 
      drawInfo();
@@ -50,28 +106,20 @@ void FollowLine() {
      if( ( sensorLine & right_bm) && !(lane_visible) ) {
 
          lane_visible = 1;
-         grid_lane_counter++;
+         updatePos();
          
-         if(grid_lane_counter >= grid_lanes) {
-         
-          OnFwd(motorLeft, cruiseSpeed);
-          OnFwd(motorRight, 0);
-          Wait(500);
-          
-          grid_lane_counter = 0;
-          grid_counter++;
-          
-          if(grid_counter >= grid_lines) {
-          
-            grid_counter = 0;
-            grid_lanes--;
-            
-            if(grid_lines > 2) {
-            
-              grid_lines--;
-              
-            }
-          }
+
+         if(posX >= 5) {
+          turnDegrees(90);
+         }
+         if(posX < 0) {
+          turnDegrees(90);
+         }
+         if(posY >= 5) {
+          turnDegrees(90);
+         }
+         if(posY < 0) {
+          turnDegrees(90);
          }
 
      } else
@@ -145,25 +193,8 @@ void updateLine() {
 void drawInfo() {
 
      ClearScreen();
-     if(sensorLine & left_bm) {
-     
-       TextOut(0, LCD_LINE2, "<--");
-       
-     }
-     if(sensorLine & center_bm) {
-     
-       TextOut(30, LCD_LINE2, "(-)");
-       
-     }
-     if(sensorLine & right_bm) {
-     
-       TextOut(60, LCD_LINE2, "-->");
-       
-     }
-     
-     NumOut(0, LCD_LINE3, grid_lane_counter);
-     NumOut(0, LCD_LINE4, grid_counter);
-     NumOut(0, LCD_LINE5, grid_lanes);
+     NumOut(0, LCD_LINE3, posX);
+     NumOut(0, LCD_LINE4, posY);
 }
 
 task main() {
