@@ -1,0 +1,77 @@
+#define LEFT 0
+#define CENTER 1
+#define RIGHT 2
+
+#define NORTH 0
+#define EAST 1
+#define SOUTH 2
+#define WEST 3
+
+bool executeFreeGrid = true;
+bool pauseFreeGrid = false;
+
+unsigned char fgrid_motorLeft, fgrid_motorRight, fgrid_sensLeft, fgrid_sensCenter, fgrid_sensRight;
+
+bool fgrid_showDisplay;
+unsigned char fgrid_lineSensors;
+unsigned char fgrid_blackThreshold;
+unsigned char fgrid_calibratedBlack[3];
+
+
+task FreeGridTask() {
+
+	while(executeFreeGrid) {
+		if(pauseFreeGrid) {
+
+			Wait(10);
+			continue;
+
+		}
+
+	}
+}
+
+void fgrid_init(unsigned char motorLeft, unsigned char motorRight, unsigned char sensLeft, unsigned char sensCenter unsigned char sensRight) {
+
+	fgrid_motorLeft = motorLeft;
+	fgrid_motorRight = motorRight;
+	fgrid_sensLeft = sensLeft;
+	fgrid_sensCenter = sensCenter;
+	fgrid_sensRight = sensRight;
+
+	fgrid_showDisplay = false;
+	fgrid_blackThreshold = 10;
+
+	OnFwd(fgrid_motorLeft, 0);
+	OnFwd(fgrid_motorLeft, 0);
+
+	setSensorLight(sensLeft);
+	setSensorLight(sensCenter);
+	setSensorLight(sensRight);
+
+}
+
+void fgrid_pause(bool pause) {
+
+	pauseFreeGrid = pause;
+
+}
+
+void fgrid_setDisplay(bool show) {
+
+	fgrid_showDisplay = show;
+
+}
+
+void fgrid_start() {
+
+	start FreeGridTask;
+}
+
+void fgrid_updateLine() {
+
+  fgrid_lineSensors = (Sensor(fgrid_sensLeft) < (fgrid_calibratedBlack[LEFT] + fgrid_blackThreshold)) << 2;
+  fgrid_lineSensors |= (Sensor(fgrid_sensCenter) < (fgrid_calibratedBlack[CENTER] + fgrid_blackThreshold)) << 1;
+  fgrid_lineSensors |= (Sensor(fgrid_sensRight) < (fgrid_calibratedBlack[RIGHT] + fgrid_blackThreshold)) << 0;
+  
+}
