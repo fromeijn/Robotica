@@ -5,6 +5,7 @@ task main() {
 	fgrid_init(OUT_A, OUT_B, IN_1, IN_2, IN_3);
 	fgrid_setDisplay(true);
 	
+	fgrid_calibrate();
 	fgrid_start();
 
 }
