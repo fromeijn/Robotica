@@ -1,23 +1,21 @@
 task main()
 {
 	SetSensorLowspeed(S1);
-	byte inbuffer[16];
-	inbuffer[0] = 0x02;
-	inbuffer[1]	= 0x00;
-	byte outbuffer[16];
-	byte countn = 2;
+	//I2CDeviceId	(S1, 0x02);
+	byte bufferin[10];
+	bufferin[0] = 0x02; //addres
+	bufferin[1] = 0x00;
+  byte bufferout[];
+  byte count = 4;
+	byte onebyte;
+	string device;
 	while((!FALSE)){
-		//string hoi = I2CDeviceId(S1, 0x02);
-		//I2CRead(S1, 14, buffer);
-		I2CBytes	(S1, inbuffer, countn, outbuffer);
+		I2CBytes(S1, bufferin, count, bufferout);
 		ClearScreen();
 		TextOut(0, LCD_LINE1, "---------------" );
-		//TextOut(0, LCD_LINE2, hoi);
+		TextOut(0, LCD_LINE2, bufferout);
 		TextOut(0, LCD_LINE3, "---------------" );
-		byte temp = outbuffer[0];
-		NumOut(0, 0, temp);
-		//TextOut(0, LCD_LINE5, ByteArrayToStr(buffer) );
-		Wait(100);
+		Wait(500);
 	}
 }
 
