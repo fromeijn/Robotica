@@ -10,6 +10,7 @@ void spi_init(void) {
 uint8_t spi_transfer(uint8_t data)
 {
 	SPIC.DATA = data;
+	PORTE.OUTTGL = PIN0_bm;
 	while(!(SPIC.STATUS & (SPI_IF_bm)));
 	return SPIC.DATA; 
 }

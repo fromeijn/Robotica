@@ -119,7 +119,7 @@
 
 
 void Write_MFRC522(uchar addr, uchar val);
-uchar Read_MFRC552(uchar addr);
+uchar Read_MFRC522(uchar addr);
 void SetBitMask(uchar reg, uchar mask);
 void ClearBitMask(uchar reg, uchar mask);
 void AntennaOn(void);

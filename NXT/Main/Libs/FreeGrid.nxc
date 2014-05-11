@@ -1,0 +1,297 @@
+#define LEFT 0
+#define CENTER 1
+#define RIGHT 2
+
+#define NORTH 0
+#define EAST 1
+#define SOUTH 2
+#define WEST 3
+
+#define FIND_CORNER 0
+
+unsigned char left_bm = 1 << 2;
+unsigned char center_bm = 1 << 1;
+unsigned char right_bm = 1 << 0;
+
+bool executeFreeGrid = true;
+bool pauseFreeGrid = false;
+
+bool leftHold = false;
+bool centerHold = false;
+bool rightHold = false;
+
+unsigned char currentTask;
+
+unsigned long firstTick, lastTick;
+unsigned char lastLane;
+
+unsigned char fgrid_motorLeft, fgrid_motorRight, fgrid_sensLeft, fgrid_sensCenter, fgrid_sensRight;
+
+bool fgrid_showDisplay;
+unsigned char lS;
+unsigned char fgrid_blackThreshold;
+unsigned char fgrid_calibratedBlack[3];
+
+void fgrid_updateLine(void);
+void findCorner(void);
+
+
+task FreeGridTask() {
+
+	while(executeFreeGrid) {
+		if(pauseFreeGrid) {
+
+			Wait(10);
+			continue;
+
+		}
+
+		switch(currentTask) {
+
+			case FIND_CORNER:
+				findCorner();
+			break;
+
+		}
+
+	}
+}
+
+void fgrid_init(unsigned char motorLeft, unsigned char motorRight, unsigned char sensLeft, unsigned char sensCenter unsigned char sensRight) {
+
+	fgrid_motorLeft = motorLeft;
+	fgrid_motorRight = motorRight;
+	fgrid_sensLeft = sensLeft;
+	fgrid_sensCenter = sensCenter;
+	fgrid_sensRight = sensRight;
+
+	fgrid_showDisplay = false;
+	fgrid_blackThreshold = 8;
+
+	fgrid_calibratedBlack[LEFT] = 35;
+	fgrid_calibratedBlack[CENTER] = 35;
+	fgrid_calibratedBlack[RIGHT] = 35;
+
+	currentTask = FIND_CORNER;
+
+	OnFwd(fgrid_motorLeft, 0);
+	OnFwd(fgrid_motorLeft, 0);
+
+	SetSensorLight(sensLeft);
+	SetSensorLight(sensCenter);
+	SetSensorLight(sensRight);
+
+}
+
+void fgrid_pause(bool pause) {
+
+	pauseFreeGrid = pause;
+
+}
+
+void fgrid_setDisplay(bool show) {
+
+	fgrid_showDisplay = show;
+
+}
+
+void fgrid_start() {
+
+	firstTick = lastTick = CurrentTick();
+
+	start FreeGridTask;
+}
+
+void fgrid_updateLine() {
+
+  lS = (Sensor(fgrid_sensLeft) < (fgrid_calibratedBlack[LEFT] + fgrid_blackThreshold)) << 2;
+  lS |= (Sensor(fgrid_sensCenter) < (fgrid_calibratedBlack[CENTER] + fgrid_blackThreshold)) << 1;
+  lS |= (Sensor(fgrid_sensRight) < (fgrid_calibratedBlack[RIGHT] + fgrid_blackThreshold)) << 0;
+  
+}
+
+void fgrid_calibrate() {
+
+	/*
+     ClearScreen();
+     TextOut(0, LCD_LINE1, "Calibrate white");
+     while( ! ButtonPressed(BTNCENTER, false) );
+
+     Wait(500);
+     fgrid_calibratedWhite[RIGHT] = Sensor(fgrid_sensRight);
+     fgrid_calibratedWhite[CENTER] = Sensor(fgrid_sensCenter);
+     fgrid_calibratedWhite[LEFT] = Sensor(fgrid_sensLeft);
+*/
+     ClearScreen();
+     TextOut(0, LCD_LINE1, "Calibrate black");
+     while( ! ButtonPressed(BTNCENTER, false));
+
+     Wait(500);
+     fgrid_calibratedBlack[RIGHT] = Sensor(fgrid_sensRight);
+     fgrid_calibratedBlack[CENTER] = Sensor(fgrid_sensCenter);
+     fgrid_calibratedBlack[LEFT] = Sensor(fgrid_sensLeft);
+
+     ClearScreen();
+     TextOut(0, LCD_LINE1, "Let's go!");
+     while( ! ButtonPressed(BTNCENTER, false));
+
+     Wait(500);
+
+}
+
+void stopRobot(int time, unsigned char beeps) {
+
+	unsigned long _tick = CurrentTick();
+	OnFwd(fgrid_motorRight, 0);
+	OnFwd(fgrid_motorLeft, 0);
+
+	for(int i = 0; i < beeps; i++) {
+
+		PlayTone(500, 150);
+		Wait(300);
+
+	}
+	Wait(1000);
+
+}
+
+void findCorner() {
+
+	fgrid_updateLine();
+
+	if(lS & center_bm) {
+
+		lastTick = CurrentTick();
+		OnFwd(fgrid_motorRight, 100);
+		OnFwd(fgrid_motorLeft, 85);
+
+	} else {
+
+		if(CurrentTick() - lastTick > 450) {
+
+			stopRobot(1000, 2);
+
+			OnFwd(fgrid_motorRight, -60);
+			OnFwd(fgrid_motorLeft, -60);
+			bool foundLine = false;
+			while(! foundLine) {
+
+				fgrid_updateLine();
+				if( (lS & left_bm) || (lS & center_bm) || (lS & right_bm) ) {
+
+					foundLine = true;
+
+				}
+
+			}
+
+			stopRobot(1000, 3);
+			if(lastLane == LEFT) {
+
+				OnFwd(fgrid_motorRight, 30);
+				OnFwd(fgrid_motorLeft, -30);
+
+			} else {
+
+				OnFwd(fgrid_motorRight, -30);
+				OnFwd(fgrid_motorLeft, 30);	
+
+			}
+
+			foundLine = false;
+			while(! foundLine) {
+
+				fgrid_updateLine();
+				if(lastLane == LEFT) {
+					if(lS & right_bm) {
+
+						foundLine = true;
+
+					}
+				} else {
+
+					if(lS & left_bm) {
+
+						foundLine = true;
+
+					}
+
+				}
+
+			}
+			stopRobot(1000, 4);
+			bool _centerHold = false;
+			bool stabilized = false;
+			while(! stabilized) {
+				fgrid_updateLine();
+				if(lS & center_bm) {
+					if(! _centerHold) {
+
+						_centerHold = true;
+						//stopRobot(0, 1);
+						lastTick = CurrentTick();
+
+					} else {
+						
+						//lastTick = CurrentTick();
+					}
+					OnFwd(fgrid_motorRight, 80);
+					OnFwd(fgrid_motorLeft, 30);
+
+				} else {
+
+					_centerHold = false;
+					//stopRobot(0, 2);
+					if( (CurrentTick() - lastTick) < 100) {
+						stabilized = true;
+						ClearScreen();
+     					NumOut(0, LCD_LINE1, (CurrentTick() - lastTick));
+     					//stopRobot(3000, 3);
+
+					} else {
+						OnFwd(fgrid_motorRight, 30);
+						OnFwd(fgrid_motorLeft, 80);
+					}
+				}
+			}
+
+			lastTick = CurrentTick();
+
+			stopRobot(1000, 5);
+
+		} else {
+
+			OnFwd(fgrid_motorRight, 85);
+			OnFwd(fgrid_motorLeft, 100);
+		}
+
+	}
+
+	if((lS & left_bm) && (! leftHold)) {
+
+		leftHold = true;
+		lastLane = LEFT;
+
+		PlayTone(400, 250);
+
+	}
+
+	if((lS & right_bm) && (! rightHold)) {
+
+		rightHold = true;
+		lastLane = RIGHT;
+
+		PlayTone(800, 250);
+
+	}
+
+	if(!(lS & left_bm)) {
+
+		leftHold = false;
+	}
+	if(!(lS & right_bm)) {
+
+		rightHold = false;
+	}
+
+}
