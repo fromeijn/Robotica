@@ -5,7 +5,7 @@ task main()
 	byte bufferin[1]; //write
 	bufferin[0] = 0x02; //addres slave
 	byte bufferout[]; //read
-	byte count = 6; //read plus 1
+	byte count = 12; //read plus 1
 	while((!FALSE)){
 		I2CBytes(S1, bufferin, count, bufferout);
 		ClearScreen();
