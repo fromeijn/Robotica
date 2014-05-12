@@ -147,7 +147,7 @@ void stopRobot(int time, unsigned char beeps) {
 
 	for(int i = 0; i < beeps; i++) {
 
-		PlayTone(500, 150);
+		//PlayTone(500, 150);
 		//Wait(300);
 
 	}
@@ -158,13 +158,15 @@ void stopRobot(int time, unsigned char beeps) {
 void getBackToLine() {
 
 	stopRobot(1000, 2);
-
+	OnFwd(fgrid_motorRight, -60);
+	OnFwd(fgrid_motorLeft, -60);
+	Wait(500);
 	if(lastLane == LEFT) {
-		OnFwd(fgrid_motorRight, -40);
+		OnFwd(fgrid_motorRight, 60);
 		OnFwd(fgrid_motorLeft, -85);
 	} else {
 		OnFwd(fgrid_motorRight, -85);
-		OnFwd(fgrid_motorLeft, -40);
+		OnFwd(fgrid_motorLeft, 60);
 
 	}
 	bool foundLine = false;
@@ -236,7 +238,7 @@ void getBackToLine() {
 
 			_centerHold = false;
 			//stopRobot(0, 2);
-			if( (CurrentTick() - lastTick) < 200) {
+			if( (CurrentTick() - lastTick) < 230) {
 				stabilized = true;
 				ClearScreen();
 					NumOut(0, LCD_LINE1, (CurrentTick() - lastTick));
@@ -267,7 +269,7 @@ void findCorner() {
 
 	} else {
 
-		if(CurrentTick() - lastTick > 400) {
+		if(CurrentTick() - lastTick > 500) {
 
 			getBackToLine();
 			
@@ -276,9 +278,10 @@ void findCorner() {
 
 
 			for(int i = 0; i < 20; i++) {
-				PlayTone(1550, 50);
-				Wait(70);
+				PlayTone(300, 40);
+				Wait(50);
 			}
+
 
 			OnFwd(fgrid_motorRight, 85);
 			OnFwd(fgrid_motorLeft, 100);
