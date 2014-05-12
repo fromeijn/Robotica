@@ -66,7 +66,7 @@ void fgrid_init(unsigned char motorLeft, unsigned char motorRight, unsigned char
 	fgrid_sensRight = sensRight;
 
 	fgrid_showDisplay = false;
-	fgrid_blackThreshold = 8;
+	fgrid_blackThreshold = 15;
 
 	fgrid_calibratedBlack[LEFT] = 35;
 	fgrid_calibratedBlack[CENTER] = 35;
@@ -148,10 +148,110 @@ void stopRobot(int time, unsigned char beeps) {
 	for(int i = 0; i < beeps; i++) {
 
 		PlayTone(500, 150);
-		Wait(300);
+		//Wait(300);
 
 	}
-	Wait(1000);
+	Wait(250);
+
+}
+
+void getBackToLine() {
+
+	stopRobot(1000, 2);
+
+	if(lastLane == LEFT) {
+		OnFwd(fgrid_motorRight, -40);
+		OnFwd(fgrid_motorLeft, -85);
+	} else {
+		OnFwd(fgrid_motorRight, -85);
+		OnFwd(fgrid_motorLeft, -40);
+
+	}
+	bool foundLine = false;
+	while(! foundLine) {
+
+		fgrid_updateLine();
+		if( (lS & left_bm) || (lS & center_bm) || (lS & right_bm) ) {
+
+			foundLine = true;
+
+		}
+
+	}
+
+	stopRobot(1000, 3);
+	if(lastLane == LEFT) {
+
+		OnFwd(fgrid_motorRight, 30);
+		OnFwd(fgrid_motorLeft, -30);
+
+	} else {
+
+		OnFwd(fgrid_motorRight, -30);
+		OnFwd(fgrid_motorLeft, 30);	
+
+	}
+
+	foundLine = false;
+	while(! foundLine) {
+
+		fgrid_updateLine();
+		if(lastLane == LEFT) {
+			if(lS & right_bm) {
+
+				foundLine = true;
+
+			}
+		} else {
+
+			if(lS & left_bm) {
+
+				foundLine = true;
+
+			}
+
+		}
+
+	}
+	stopRobot(1000, 4);
+	bool _centerHold = false;
+	bool stabilized = false;
+	while(! stabilized) {
+		fgrid_updateLine();
+		if(lS & center_bm) {
+			if(! _centerHold) {
+
+				_centerHold = true;
+				//stopRobot(0, 1);
+				lastTick = CurrentTick();
+
+			} else {
+				
+				//lastTick = CurrentTick();
+			}
+			OnFwd(fgrid_motorRight, 80);
+			OnFwd(fgrid_motorLeft, 30);
+
+		} else {
+
+			_centerHold = false;
+			//stopRobot(0, 2);
+			if( (CurrentTick() - lastTick) < 200) {
+				stabilized = true;
+				ClearScreen();
+					NumOut(0, LCD_LINE1, (CurrentTick() - lastTick));
+					//stopRobot(3000, 3);
+
+			} else {
+				OnFwd(fgrid_motorRight, 30);
+				OnFwd(fgrid_motorLeft, 80);
+			}
+		}
+	}
+
+	lastTick = CurrentTick();
+
+	stopRobot(1000, 5);
 
 }
 
@@ -167,97 +267,22 @@ void findCorner() {
 
 	} else {
 
-		if(CurrentTick() - lastTick > 450) {
+		if(CurrentTick() - lastTick > 400) {
 
-			stopRobot(1000, 2);
+			getBackToLine();
+			
+			OnFwd(fgrid_motorRight, 0);
+			OnFwd(fgrid_motorLeft, 0);
 
-			OnFwd(fgrid_motorRight, -60);
-			OnFwd(fgrid_motorLeft, -60);
-			bool foundLine = false;
-			while(! foundLine) {
 
-				fgrid_updateLine();
-				if( (lS & left_bm) || (lS & center_bm) || (lS & right_bm) ) {
-
-					foundLine = true;
-
-				}
-
+			for(int i = 0; i < 20; i++) {
+				PlayTone(1550, 50);
+				Wait(70);
 			}
 
-			stopRobot(1000, 3);
-			if(lastLane == LEFT) {
-
-				OnFwd(fgrid_motorRight, 30);
-				OnFwd(fgrid_motorLeft, -30);
-
-			} else {
-
-				OnFwd(fgrid_motorRight, -30);
-				OnFwd(fgrid_motorLeft, 30);	
-
-			}
-
-			foundLine = false;
-			while(! foundLine) {
-
-				fgrid_updateLine();
-				if(lastLane == LEFT) {
-					if(lS & right_bm) {
-
-						foundLine = true;
-
-					}
-				} else {
-
-					if(lS & left_bm) {
-
-						foundLine = true;
-
-					}
-
-				}
-
-			}
-			stopRobot(1000, 4);
-			bool _centerHold = false;
-			bool stabilized = false;
-			while(! stabilized) {
-				fgrid_updateLine();
-				if(lS & center_bm) {
-					if(! _centerHold) {
-
-						_centerHold = true;
-						//stopRobot(0, 1);
-						lastTick = CurrentTick();
-
-					} else {
-						
-						//lastTick = CurrentTick();
-					}
-					OnFwd(fgrid_motorRight, 80);
-					OnFwd(fgrid_motorLeft, 30);
-
-				} else {
-
-					_centerHold = false;
-					//stopRobot(0, 2);
-					if( (CurrentTick() - lastTick) < 100) {
-						stabilized = true;
-						ClearScreen();
-     					NumOut(0, LCD_LINE1, (CurrentTick() - lastTick));
-     					//stopRobot(3000, 3);
-
-					} else {
-						OnFwd(fgrid_motorRight, 30);
-						OnFwd(fgrid_motorLeft, 80);
-					}
-				}
-			}
-
+			OnFwd(fgrid_motorRight, 85);
+			OnFwd(fgrid_motorLeft, 100);
 			lastTick = CurrentTick();
-
-			stopRobot(1000, 5);
 
 		} else {
 
