@@ -8,6 +8,7 @@
 #define WEST 3
 
 #define FIND_CORNER 0
+#define FOLLOW_GRID 1
 
 unsigned char left_bm = 1 << 2;
 unsigned char center_bm = 1 << 1;
@@ -19,6 +20,8 @@ bool pauseFreeGrid = false;
 bool leftHold = false;
 bool centerHold = false;
 bool rightHold = false;
+
+unsigned char numCornerFound = 0;
 
 unsigned char currentTask;
 
@@ -33,7 +36,8 @@ unsigned char fgrid_blackThreshold;
 unsigned char fgrid_calibratedBlack[3];
 
 void fgrid_updateLine(void);
-void findCorner(void);
+bool findCorner(void);
+void followGrid(void);
 
 
 task FreeGridTask() {
@@ -50,6 +54,10 @@ task FreeGridTask() {
 
 			case FIND_CORNER:
 				findCorner();
+			break;
+
+			case FOLLOW_GRID:
+				followGrid();
 			break;
 
 		}
@@ -112,16 +120,6 @@ void fgrid_updateLine() {
 
 void fgrid_calibrate() {
 
-	/*
-     ClearScreen();
-     TextOut(0, LCD_LINE1, "Calibrate white");
-     while( ! ButtonPressed(BTNCENTER, false) );
-
-     Wait(500);
-     fgrid_calibratedWhite[RIGHT] = Sensor(fgrid_sensRight);
-     fgrid_calibratedWhite[CENTER] = Sensor(fgrid_sensCenter);
-     fgrid_calibratedWhite[LEFT] = Sensor(fgrid_sensLeft);
-*/
      ClearScreen();
      TextOut(0, LCD_LINE1, "Calibrate black");
      while( ! ButtonPressed(BTNCENTER, false));
@@ -155,9 +153,67 @@ void stopRobot(int time, unsigned char beeps) {
 
 }
 
+unsigned char laneCount = 0;
+
+void followGrid() {
+
+	fgrid_updateLine();
+
+	if(lS & center_bm) {
+
+		lastTick = CurrentTick();
+		OnFwd(fgrid_motorRight, 100);
+		OnFwd(fgrid_motorLeft, 85);
+
+	} else {
+
+		OnFwd(fgrid_motorRight, 85);
+		OnFwd(fgrid_motorLeft, 100);
+
+	}
+
+	if((lS & left_bm) && (! leftHold)) {
+
+		laneCount++;
+		if(laneCount >= 5) {
+
+			OnFwd(fgrid_motorLeft, 100);
+			OnFwd(fgrid_motorLeft, 0);
+			Wait(490);
+			laneCount = 0;
+
+		}
+
+		leftHold = true;
+		lastLane = LEFT;
+
+		//PlayTone(400, 250);
+
+	}
+
+	if((lS & right_bm) && (! rightHold)) {
+
+		
+		rightHold = true;
+		lastLane = RIGHT;
+
+		PlayTone(800, 500);
+
+	}
+
+	if(!(lS & left_bm)) {
+
+		leftHold = false;
+	}
+	if(!(lS & right_bm)) {
+
+		rightHold = false;
+	}
+
+}
+
 void getBackToLine() {
 
-	stopRobot(1000, 2);
 	OnFwd(fgrid_motorRight, -60);
 	OnFwd(fgrid_motorLeft, -60);
 	Wait(500);
@@ -181,7 +237,6 @@ void getBackToLine() {
 
 	}
 
-	stopRobot(1000, 3);
 	if(lastLane == LEFT) {
 
 		OnFwd(fgrid_motorRight, 30);
@@ -215,7 +270,6 @@ void getBackToLine() {
 		}
 
 	}
-	stopRobot(1000, 4);
 	bool _centerHold = false;
 	bool stabilized = false;
 	while(! stabilized) {
@@ -224,7 +278,6 @@ void getBackToLine() {
 			if(! _centerHold) {
 
 				_centerHold = true;
-				//stopRobot(0, 1);
 				lastTick = CurrentTick();
 
 			} else {
@@ -237,12 +290,10 @@ void getBackToLine() {
 		} else {
 
 			_centerHold = false;
-			//stopRobot(0, 2);
 			if( (CurrentTick() - lastTick) < 230) {
 				stabilized = true;
 				ClearScreen();
 					NumOut(0, LCD_LINE1, (CurrentTick() - lastTick));
-					//stopRobot(3000, 3);
 
 			} else {
 				OnFwd(fgrid_motorRight, 30);
@@ -253,11 +304,9 @@ void getBackToLine() {
 
 	lastTick = CurrentTick();
 
-	stopRobot(1000, 5);
-
 }
 
-void findCorner() {
+bool findCorner() {
 
 	fgrid_updateLine();
 
@@ -272,15 +321,25 @@ void findCorner() {
 		if(CurrentTick() - lastTick > 500) {
 
 			getBackToLine();
-			
-			OnFwd(fgrid_motorRight, 0);
-			OnFwd(fgrid_motorLeft, 0);
-
 
 			for(int i = 0; i < 20; i++) {
 				PlayTone(300, 40);
 				Wait(50);
 			}
+			
+			numCornerFound++;
+			if(numCornerFound >= 2) {
+
+				currentTask = FOLLOW_GRID;
+				return 1;
+
+			}
+			
+			OnFwd(fgrid_motorRight, 0);
+			OnFwd(fgrid_motorLeft, 0);
+
+			
+			
 
 
 			OnFwd(fgrid_motorRight, 85);
@@ -293,33 +352,6 @@ void findCorner() {
 			OnFwd(fgrid_motorLeft, 100);
 		}
 
-	}
-
-	if((lS & left_bm) && (! leftHold)) {
-
-		leftHold = true;
-		lastLane = LEFT;
-
-		PlayTone(400, 250);
-
-	}
-
-	if((lS & right_bm) && (! rightHold)) {
-
-		rightHold = true;
-		lastLane = RIGHT;
-
-		PlayTone(800, 250);
-
-	}
-
-	if(!(lS & left_bm)) {
-
-		leftHold = false;
-	}
-	if(!(lS & right_bm)) {
-
-		rightHold = false;
 	}
 
 }
