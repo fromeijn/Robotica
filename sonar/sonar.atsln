@@ -1,0 +1,20 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 11.00
+# Atmel Studio Solution File, Format Version 11.00
+Project("{54F91283-7BC4-4236-8FF9-10F437C3AD48}") = "sonar", "sonar\sonar.cproj", "{DD1D5607-8058-47AC-96AF-C5118E999634}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|AVR = Debug|AVR
+		Release|AVR = Release|AVR
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{DD1D5607-8058-47AC-96AF-C5118E999634}.Debug|AVR.ActiveCfg = Debug|AVR
+		{DD1D5607-8058-47AC-96AF-C5118E999634}.Debug|AVR.Build.0 = Debug|AVR
+		{DD1D5607-8058-47AC-96AF-C5118E999634}.Release|AVR.ActiveCfg = Release|AVR
+		{DD1D5607-8058-47AC-96AF-C5118E999634}.Release|AVR.Build.0 = Release|AVR
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
