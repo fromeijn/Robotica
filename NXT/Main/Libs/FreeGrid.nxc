@@ -322,10 +322,6 @@ bool findCorner() {
 
 			getBackToLine();
 
-			for(int i = 0; i < 20; i++) {
-				PlayTone(300, 40);
-				Wait(50);
-			}
 			
 			numCornerFound++;
 			if(numCornerFound >= 2) {
@@ -337,11 +333,7 @@ bool findCorner() {
 			
 			OnFwd(fgrid_motorRight, 0);
 			OnFwd(fgrid_motorLeft, 0);
-
 			
-			
-
-
 			OnFwd(fgrid_motorRight, 85);
 			OnFwd(fgrid_motorLeft, 100);
 			lastTick = CurrentTick();
