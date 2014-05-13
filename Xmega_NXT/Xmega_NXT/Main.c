@@ -29,18 +29,28 @@ TWI_Slave_t twiSlave;
 
 char str[256];
 uint8_t receiveArray[NUM_BYTES];
-char indata[16];
-uint8_t index;
+uint8_t transmitArray[256];
 
 void TWIC_SlaveProcessData(void)
 {
-	index = twiSlave.bytesReceived;
-	indata[index] = twiSlave.receivedData[index];
+	uint8_t askbyte = twiSlave.receivedData[0];
+	for(uint8_t i = 0; i < NUM_BYTES; i++)
+	{
+		if (transmitArray[i+askbyte] >= ' ')
+		{
+			twiSlave.sendData[i] = transmitArray[i+askbyte];
+		}else{
+			twiSlave.sendData[i] = '_';
+		}
+	}
+	if(twiSlave.receivedData[0] == 0x01) transmitArray[5] = '_';
 }
+	
 
 int main(void)
 {
 	PORTE.DIRSET = PIN0_bm;
+	PORTE.DIRSET = PIN3_bm;
 	
 	PORTC.INT0MASK = PIN6_bm;
 	PORTC.PIN6CTRL = PORT_ISC_RISING_gc;
@@ -55,9 +65,9 @@ int main(void)
 	TCC1.PER       = 400;
 	
 	TWI_SlaveInitializeDriver(&twiSlave, &TWIC, TWIC_SlaveProcessData);
-	TWI_SlaveInitializeModule(&twiSlave, SLAVE_ADDRESS, TWI_SLAVE_INTLVL_LO_gc);
+	TWI_SlaveInitializeModule(&twiSlave, SLAVE_ADDRESS, TWI_SLAVE_INTLVL_MED_gc);
 	
-	PMIC.CTRL = PMIC_LOLVLEN_bm;
+	PMIC.CTRL = PMIC_LOLVLEN_bm|PMIC_MEDLVLEN_bm;
 	sei();
 	
 	twiSlave.sendData[0] = 'T';
@@ -67,15 +77,31 @@ int main(void)
 	
 	sprintf(str, "UART Connected!!!\n\r");
 	uart_puts(&uartD0, str);
+	uint8_t x = 0;
 	while(1)
 	{
-		//nop
+		transmitArray[0] = 'T';
+		transmitArray[1] = 'W';
+		transmitArray[2] = 'I';
+		transmitArray[3] = ' ';
+		transmitArray[4] = '0'+x;
+		sprintf(str, "0x%d\n\r", x);
+		uart_puts(&uartD0, str);
+		x++;
+		if (x>=10)
+		{
+			x = 0;
+		}
+		_delay_ms(1000);
 	}
 }
 
 ISR(TWIC_TWIS_vect)
 {
 	TWI_SlaveInterruptHandler(&twiSlave);
+	PORTE.OUTSET   = PIN0_bm;
+	PORTE.OUTCLR  = PIN0_bm;
+	
 }
 
 ISR(PORTC_INT0_vect)
@@ -86,13 +112,14 @@ ISR(PORTC_INT0_vect)
 ISR(TCC1_OVF_vect)
 {
 	TCC1.CTRLA     = TC_CLKSEL_OFF_gc;
-	PORTE.OUTSET   = PIN0_bm;
 	int i = 0;
 	while (i < NUM_BYTES)
 	{
 		if (USART_RXBufferData_Available(&uartC1))
 		{
 			receiveArray[i] = USART_RXBuffer_GetByte(&uartC1);
+		}else{
+			receiveArray[i] = '_';
 		}
 		i++;
 	}
@@ -101,15 +128,9 @@ ISR(TCC1_OVF_vect)
 	uart_puts(&uartD0, "ID: ");
 	while (i < NUM_BYTES)
 	{
-		if (receiveArray[i]>0)
-		{
-			if (i<11)
-			{
-				twiSlave.sendData[i] = receiveArray[i];
-			}
-			uart_putc(&uartD0, receiveArray[i]);
-		}
+		transmitArray[i+0x0F] = receiveArray[i];
+		uart_putc(&uartD0, receiveArray[i]);
 		i++;
 	}
-	PORTE.OUTCLR   = PIN0_bm;
+	transmitArray[5] = 'B';
 }
