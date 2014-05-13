@@ -1,18 +1,52 @@
+//boven
+byte bufferin[2]; //write
+byte bufferout[]; //read
+byte count = 11; //read plus 1
+byte id;
+
+void TWI(byte askbyte)
+{
+	bufferin[1] = askbyte; //ask
+	I2CBytes(S4, bufferin, count, bufferout);
+}
+
 task main()
 {
-	SetSensorLowspeed(S1);
-	//I2CDeviceId	(S1, 0x02);
-	byte bufferin[1]; //write
-	bufferin[0] = 0x02; //addres slave
-	byte bufferout[]; //read
-	byte count = 12; //read plus 1
+    bufferin[0] = 0x02; //addres slave
+	SetSensorLowspeed(S4);
+
 	while((!FALSE)){
-		I2CBytes(S1, bufferin, count, bufferout);
-		ClearScreen();
+		//ClearScreen();
+		TWI(0x00);
+		I2CBytes(S4, bufferin, count, bufferout);
 		TextOut(0, LCD_LINE1, "---------------" );
 		TextOut(0, LCD_LINE2, bufferout);
+
+		if(bufferout[5] == 'B')
+		{
+			TWI(0x01); //reset
+			id = 1;
+			
+		}
+
 		TextOut(0, LCD_LINE3, "---------------" );
-		Wait(100);
+		TWI(0x10);
+    TextOut(0, LCD_LINE8, "last:");
+    if(bufferout[9] == '4' & id == 1)
+		{
+			//PlayTone(1000, 100);
+			PlayFile("cat.rso");
+
+			id = 0;
+		}
+	else if(bufferout[9] == '9' & id == 1)
+	{
+		//PlayTone(600, 100);
+		PlayFile("rooster.rso");
+		id = 0;
+	}
+
+		TextOut(8*5, LCD_LINE8, bufferout);
 	}
 }
 
