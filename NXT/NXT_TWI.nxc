@@ -2,7 +2,7 @@
 byte bufferin[2]; //write
 byte bufferout[]; //read
 byte count = 11; //read plus 1
-byte id;
+byte id = 0;
 
 void TWI(byte askbyte)
 {
@@ -10,18 +10,37 @@ void TWI(byte askbyte)
 	I2CBytes(S4, bufferin, count, bufferout);
 }
 
+void morse(int x)
+{	//M
+	PlayTone(700, 100);
+	Wait(200);
+	PlayTone(700, 100);
+	Wait(300);
+	//O
+	PlayTone(700, 100);
+	Wait(200);
+	PlayTone(700, 100);
+	Wait(200);
+	PlayTone(700, 100);
+	Wait(300); 
+	while(x>0)
+	{
+		PlayTone(700, 50);
+		Wait(100);
+		x--;
+	}
+}
+
 task main()
 {
     bufferin[0] = 0x02; //addres slave
 	SetSensorLowspeed(S4);
 
-	while((!FALSE)){
+	while(TRUE)
+	{
 		//ClearScreen();
 		TWI(0x00);
-		I2CBytes(S4, bufferin, count, bufferout);
-		TextOut(0, LCD_LINE1, "---------------" );
-		TextOut(0, LCD_LINE2, bufferout);
-
+		TextOut(0, LCD_LINE1, bufferout);
 		if(bufferout[5] == 'B')
 		{
 			TWI(0x01); //reset
@@ -29,25 +48,41 @@ task main()
 			
 		}
 
-		TextOut(0, LCD_LINE3, "---------------" );
-		TWI(0x10);
-    TextOut(0, LCD_LINE8, "last:");
-    if(bufferout[9] == '4' & id == 1)
-		{
-			//PlayTone(1000, 100);
-			PlayFile("cat.rso");
+		//Sonar
+		TextOut(0, LCD_LINE6, "Sonar A:      cm");
+		TextOut(0, LCD_LINE7, "Sonar B:      cm");
+		TWI(0x1F);
+		NumOut(12*5, LCD_LINE6, bufferout[1]);
+		TWI(0x2F);
+		NumOut(12*5, LCD_LINE7, bufferout[1]);
 
+		// RFID
+		TWI(0x10);
+		//sound
+		if(id == 1)
+		{
+		
+			switch (bufferout[9]){
+				case '1': morse(1);//1
+				break;
+				case '2': morse(2);//2
+				break;
+				case 'A': morse(3);//3
+				break;
+				case 'E': morse(4);//4
+				break;
+				case '9': morse(5);//5
+				break;
+				default: PlayTone(500, 100);
+				break;
+			}
 			id = 0;
 		}
-	else if(bufferout[9] == '9' & id == 1)
-	{
-		//PlayTone(600, 100);
-		PlayFile("rooster.rso");
-		id = 0;
-	}
-
+		TextOut(0, LCD_LINE8, "RFID:");
 		TextOut(8*5, LCD_LINE8, bufferout);
+    	Wait(100);
 	}
+	
 }
 
 
