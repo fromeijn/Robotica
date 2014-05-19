@@ -62,9 +62,9 @@ int main(void)
 		transmitArray[4] = '0'+x;
 		sprintf(str, "still alive! %d\n\r", x);
 		uart_puts(&uartD0, str);
-		sprintf(str, "Sonar A = %4d cm\n\r", transmitArray[0x20]);
+		sprintf(str, "Sonar A = %c%c%c cm\n\r", transmitArray[0x20], transmitArray[0x21], transmitArray[0x22]);
 		uart_puts(&uartD0, str);
-		sprintf(str, "Sonar B = %4d cm\n\r", transmitArray[0x30]);
+		sprintf(str, "Sonar B = %c%c%c cm\n\r", transmitArray[0x30], transmitArray[0x31], transmitArray[0x32]);
 		uart_puts(&uartD0, str);
 		x++;
 		if (x>=10)
@@ -114,16 +114,54 @@ ISR(TCC1_OVF_vect)//uart delay
 ISR(TCD0_CCA_vect) //sonar A
 {
 	uint16_t time = TCD0.CCA;
-	uint8_t cm = time/116;
-	transmitArray[0x20] = cm;
+	transmitArray[0x22] = '0';
+	transmitArray[0x21] = '0';
+	transmitArray[0x20] = '0';
+	int cm = time/116;
+
+	while(cm>=100)
+	{
+		transmitArray[0x22]++;
+		cm-=100;
+	}
+	while(cm>=10)
+	{
+		transmitArray[0x21]++;
+		cm-=10;
+	}
+	while(cm>=1)
+	{
+		transmitArray[0x20]++;
+		cm-=1;
+	}
+	
 	TCD0.CTRLFSET = TC_CMD_RESTART_gc;
 }
 
 ISR(TCD1_CCA_vect) //Sonar B
 {
 	uint16_t time = TCD1.CCA;
-	uint8_t cm = time/116;
-	transmitArray[0x30] = cm;
+	transmitArray[0x32] = '0';
+	transmitArray[0x31] = '0';
+	transmitArray[0x30] = '0';
+	int cm = time/116;
+	
+	while(cm>=100)
+	{
+		transmitArray[0x32]++;
+		cm-=100;
+	}
+	while(cm>=10)
+	{
+		transmitArray[0x31]++;
+		cm-=10;
+	}
+	while(cm>=1)
+	{
+		transmitArray[0x30]++;
+		cm-=1;
+	}
+	
 	TCD1.CTRLFSET = TC_CMD_RESTART_gc;
 }
 
@@ -179,7 +217,7 @@ void init_all(void)
 	TCE0.CTRLB     = TC_WGMODE_NORMAL_gc;
 	TCE0.CTRLA     = TC_CLKSEL_DIV1024_gc;
 	TCE0.INTCTRLA  = TC_OVFINTLVL_LO_gc;
-	TCE0.PER       = 195;//~10Hz so 5Hz each
+	TCE0.PER       = 500;//195;//~10Hz so 5Hz each
 	//timer for sonar A
 	PORTC.PIN4CTRL = PORT_ISC_BOTHEDGES_gc;
 	EVSYS.CH0MUX = EVSYS_CHMUX_PORTC_PIN4_gc;

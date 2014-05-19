@@ -1,7 +1,13 @@
-//boven
+//////// Groep J ////////
+//    Hoofdprogramma   //
+//      I2C Test       //
+/////////////////////////
+
 byte bufferin[2]; //write
 byte bufferout[]; //read
 byte count = 11; //read plus 1
+
+
 byte id = 0;
 
 void TWI(byte askbyte)
@@ -51,10 +57,10 @@ task main()
 		//Sonar
 		TextOut(0, LCD_LINE6, "Sonar A:      cm");
 		TextOut(0, LCD_LINE7, "Sonar B:      cm");
-		TWI(0x1F);
-		NumOut(12*5, LCD_LINE6, bufferout[1]);
-		TWI(0x2F);
-		NumOut(12*5, LCD_LINE7, bufferout[1]);
+		TWI(0x20);
+		TextOut(0, LCD_LINE4, bufferout);
+		TWI(0x30);
+		TextOut(0, LCD_LINE5, bufferout);
 
 		// RFID
 		TWI(0x10);
