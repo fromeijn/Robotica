@@ -1,0 +1,29 @@
+
+
+/*
+
+	1 byte - message id
+	x bytes - data
+
+*/
+
+
+switch(message_id) {
+	
+	case 0:
+
+		x = readint16();
+		y = readint16();
+
+	break;
+
+	case 1:
+
+		lanes = readuint8();
+
+	break;
+
+}
+
+
+sendMessage(0, x, y);

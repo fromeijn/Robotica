@@ -88,11 +88,11 @@ void updatePos() {
 }
 
 void turnDegrees(unsigned char degrees) {
- direction++;
- if(direction > 3) direction = 0;
  OnFwd(motorLeft, 60);
  OnFwd(motorRight, -60);
- Wait(300);
+ Wait(200);
+ direction++;
+ if(direction > 3) direction = 0;
  
 }
 
@@ -109,16 +109,16 @@ void FollowLine() {
          updatePos();
          
 
-         if(posX >= 5) {
+         if(posX >= 5 && posY == 0 || posY == 5) {
           turnDegrees(90);
          }
-         if(posX < 0) {
+         if(posX < 0 && posY == 0 || posY == 5) {
           turnDegrees(90);
          }
-         if(posY >= 5) {
+         if(posY >= 5 && posX == 0 || posX == 5) {
           turnDegrees(90);
          }
-         if(posY < 0) {
+         if(posY < 0 && posX == 0 || posX == 5) {
           turnDegrees(90);
          }
 
@@ -163,15 +163,6 @@ void FollowLine() {
 void Calibrate() {
 
      ClearScreen();
-     TextOut(0, LCD_LINE1, "Calibrate white");
-     while( ! ButtonPressed(BTNCENTER, false) );
-
-     Wait(500);
-     calibrateWhite[RIGHT] = Sensor(sensorRight);
-     calibrateWhite[CENTER] = Sensor(sensorCenter);
-     calibrateWhite[LEFT] = Sensor(sensorLeft);
-
-     ClearScreen();
      TextOut(0, LCD_LINE1, "Calibrate black");
      while( ! ButtonPressed(BTNCENTER, false));
 
@@ -193,8 +184,13 @@ void updateLine() {
 void drawInfo() {
 
      ClearScreen();
-     NumOut(0, LCD_LINE3, posX);
-     NumOut(0, LCD_LINE4, posY);
+     TextOut(0, LCD_LINE1, "Direction = ");
+     TextOut(0, LCD_LINE3, "X = ");
+     TextOut(0, LCD_LINE4, "Y = ");
+     NumOut(14*5, LCD_LINE1, direction);
+     NumOut(4*5, LCD_LINE3, posX);
+     NumOut(4*5, LCD_LINE4, posY);
+     
 }
 
 task main() {

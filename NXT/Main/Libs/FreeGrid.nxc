@@ -280,9 +280,6 @@ void getBackToLine() {
 				_centerHold = true;
 				lastTick = CurrentTick();
 
-			} else {
-				
-				//lastTick = CurrentTick();
 			}
 			OnFwd(fgrid_motorRight, 80);
 			OnFwd(fgrid_motorLeft, 30);
