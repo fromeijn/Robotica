@@ -1,4 +1,4 @@
-#include "FreeGrid.nxc"
+#include "Libs/FreeGrid.nxc"
 
 task main() {
 
