@@ -10,6 +10,13 @@
 #define FIND_CORNER 0
 #define FOLLOW_GRID 1
 
+unsigned char richting = 0;
+unsigned char lijnX = 0;
+unsigned char lijnY = 0;
+
+unsigned char grid_size_x= 5;
+unsigned char grid_size_y = 5;	
+
 unsigned char left_bm = 1 << 2;
 unsigned char center_bm = 1 << 1;
 unsigned char right_bm = 1 << 0;
@@ -38,7 +45,10 @@ unsigned char fgrid_calibratedBlack[3];
 void fgrid_updateLine(void);
 bool findCorner(void);
 void followGrid(void);
-
+void updatePos(void);
+void turnDegrees(unsigned char degrees);
+void FollowLine(void);
+void drawInfo(void);
 
 task FreeGridTask() {
 
@@ -150,65 +160,6 @@ void stopRobot(int time, unsigned char beeps) {
 
 	}
 	Wait(250);
-
-}
-
-unsigned char laneCount = 0;
-
-void followGrid() {
-
-	fgrid_updateLine();
-
-	if(lS & center_bm) {
-
-		lastTick = CurrentTick();
-		OnFwd(fgrid_motorRight, 100);
-		OnFwd(fgrid_motorLeft, 85);
-
-	} else {
-
-		OnFwd(fgrid_motorRight, 85);
-		OnFwd(fgrid_motorLeft, 100);
-
-	}
-
-	if((lS & left_bm) && (! leftHold)) {
-
-		laneCount++;
-		if(laneCount >= 5) {
-
-			OnFwd(fgrid_motorLeft, 100);
-			OnFwd(fgrid_motorLeft, 0);
-			Wait(490);
-			laneCount = 0;
-
-		}
-
-		leftHold = true;
-		lastLane = LEFT;
-
-		//PlayTone(400, 250);
-
-	}
-
-	if((lS & right_bm) && (! rightHold)) {
-
-		
-		rightHold = true;
-		lastLane = RIGHT;
-
-		PlayTone(800, 500);
-
-	}
-
-	if(!(lS & left_bm)) {
-
-		leftHold = false;
-	}
-	if(!(lS & right_bm)) {
-
-		rightHold = false;
-	}
 
 }
 
@@ -343,4 +294,82 @@ bool findCorner() {
 
 	}
 
+}
+
+
+//coördinaten syteem
+void updatePos()
+{
+	if(richting == 0) lijnY++;
+	if(richting == 1) lijnX++;
+	if(richting == 2) lijnY--;
+	if(richting == 3) lijnX--;
+     
+     // if(posX < 0) { posX = 0; }
+     // if(posX > grid_size_x) { posX = grid_size_x; }
+     // if(posY < 0) { posY = 0; }
+     // if(posY > grid_size_y) { posY = grid_size_y; }
+}
+
+void turnDegrees(unsigned char degrees)
+{
+	OnFwd(fgrid_motorLeft, 100);
+	OnFwd(fgrid_motorRight, 0);
+	Wait(490);
+	richting++;
+	if(richting > 3) richting = 0;
+}
+
+void drawInfo() {
+    //maybe graphics?
+     ClearScreen();
+     TextOut(0, LCD_LINE1, "richting = ");
+     TextOut(0, LCD_LINE2, "X         = ");
+     TextOut(0, LCD_LINE3, "Y         = ");
+     NumOut(14*5, LCD_LINE1, richting);
+     NumOut(14*5, LCD_LINE2, lijnX);
+     NumOut(14*5, LCD_LINE3, lijnY);
+}
+
+void followGrid() {
+	drawInfo();
+	fgrid_updateLine();
+
+	if(lS & center_bm)
+	{
+		lastTick = CurrentTick();
+		OnFwd(fgrid_motorRight, 100);
+		OnFwd(fgrid_motorLeft, 85);
+	}else
+	{
+		OnFwd(fgrid_motorRight, 85);
+		OnFwd(fgrid_motorLeft, 100);
+	}
+
+	if((lS & left_bm) && (! leftHold))
+	{
+		//updatePos();
+		if((lijnX == 0 || lijnY == 5) && (lijnX == 0 || lijnY == 5))
+		{
+			turnDegrees(90);
+		}
+		leftHold = true;
+		lastLane = LEFT;
+	}	
+
+	if((lS & right_bm) && (! rightHold))
+	{
+		rightHold = true;
+		lastLane = RIGHT;
+	}
+
+	if(!(lS & left_bm))
+	{
+		leftHold = false;
+	}
+	
+	if(!(lS & right_bm))
+	{
+	rightHold = false;
+	}
 }
