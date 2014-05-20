@@ -13,9 +13,10 @@
 unsigned char richting = 0;
 unsigned char lijnX = 0;
 unsigned char lijnY = 0;
-
+unsigned char skipfirst = 0;
 unsigned char grid_size_x= 5;
-unsigned char grid_size_y = 5;	
+unsigned char grid_size_y = 5;
+unsigned char opdracht = 0;
 
 unsigned char left_bm = 1 << 2;
 unsigned char center_bm = 1 << 1;
@@ -49,6 +50,7 @@ void updatePos(void);
 void turnDegrees(unsigned char degrees);
 void FollowLine(void);
 void drawInfo(void);
+void sendnumbluetooth(int x);
 
 task FreeGridTask() {
 
@@ -73,6 +75,34 @@ task FreeGridTask() {
 		}
 
 	}
+}
+
+void sendnumbluetooth(int x)
+{
+	NumOut(0, LCD_LINE3, x);
+	// byte bluetoothtemp[];
+	// if(x>1000)
+	// {
+	// 	x -= 1000;
+	// 	bluetoothtemp[3]++;
+	// }
+	// if(x>100)
+	// {
+	// 	x -= 100;
+	// 	bluetoothtemp[2]++;
+	// }
+	// if(x>10)
+	// {
+	// 	x -= 10;
+	// 	bluetoothtemp[1]++;
+	// }
+	// if(x>1)
+	// {
+	// 	x -= 1;
+	// 	bluetoothtemp[0]++;
+	// }
+	// BluetoothWrite(1, bluetoothtemp);
+	// TextOut(0, LCD_LINE2, bluetoothtemp);
 }
 
 void fgrid_init(unsigned char motorLeft, unsigned char motorRight, unsigned char sensLeft, unsigned char sensCenter unsigned char sensRight) {
@@ -138,7 +168,6 @@ void fgrid_calibrate() {
      fgrid_calibratedBlack[RIGHT] = Sensor(fgrid_sensRight);
      fgrid_calibratedBlack[CENTER] = Sensor(fgrid_sensCenter);
      fgrid_calibratedBlack[LEFT] = Sensor(fgrid_sensLeft);
-
      ClearScreen();
      TextOut(0, LCD_LINE1, "Let's go!");
      while( ! ButtonPressed(BTNCENTER, false));
@@ -305,16 +334,19 @@ void updatePos()
 	if(richting == 2) lijnY--;
 	if(richting == 3) lijnX--;
      
-     // if(posX < 0) { posX = 0; }
-     // if(posX > grid_size_x) { posX = grid_size_x; }
-     // if(posY < 0) { posY = 0; }
-     // if(posY > grid_size_y) { posY = grid_size_y; }
+	if(lijnX < 0) { lijnX = 0; }
+	if(lijnX > grid_size_x) { lijnX = grid_size_x; }
+	if(lijnY < 0) { lijnY = 0; }
+	if(lijnY > grid_size_y) { lijnY = grid_size_y; }
+
+	opdracht++;
+
 }
 
 void turnDegrees(unsigned char degrees)
 {
-	OnFwd(fgrid_motorLeft, 100);
-	OnFwd(fgrid_motorRight, 0);
+	OnFwd(fgrid_motorLeft, 0);
+	OnFwd(fgrid_motorRight, 100);
 	Wait(490);
 	richting++;
 	if(richting > 3) richting = 0;
@@ -326,9 +358,11 @@ void drawInfo() {
      TextOut(0, LCD_LINE1, "richting = ");
      TextOut(0, LCD_LINE2, "X         = ");
      TextOut(0, LCD_LINE3, "Y         = ");
+     TextOut(0, LCD_LINE4, "opdracht  = ");
      NumOut(14*5, LCD_LINE1, richting);
      NumOut(14*5, LCD_LINE2, lijnX);
      NumOut(14*5, LCD_LINE3, lijnY);
+     NumOut(14*5, LCD_LINE4, opdracht);
 }
 
 void followGrid() {
@@ -348,10 +382,25 @@ void followGrid() {
 
 	if((lS & left_bm) && (! leftHold))
 	{
-		//updatePos();
-		if((lijnX == 0 || lijnY == 5) && (lijnX == 0 || lijnY == 5))
+		updatePos();
+		switch(opdracht)
 		{
-			turnDegrees(90);
+			case 5: turnDegrees(90);
+			break;
+			case 10: turnDegrees(90);
+			break;
+			case 15: turnDegrees(90);
+			break;
+			case 19: turnDegrees(90);
+			break;
+			case 23: turnDegrees(90);
+			break;
+			case 26: turnDegrees(90);
+			break;
+			case 29: turnDegrees(90);
+			break;
+			case 31: turnDegrees(90);
+			break;
 		}
 		leftHold = true;
 		lastLane = LEFT;
