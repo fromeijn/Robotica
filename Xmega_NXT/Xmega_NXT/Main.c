@@ -1,31 +1,44 @@
+/* PORTS 
+
+Debug
+TX 		= Port D 3
+RX 		= Port D 2
+
+RFID
+TX 		= Port C 7
+RX 		= Port C 6
+
+Sonar A
+Trigger = Port C 2
+Echo 	= Port C 4
+
+Sonar B
+Trigger = Port C 3
+Echo   	= Port C 5
+
+I2C Adresses
+0x00 card detection and still running check
+0x01 card has been read
+0x10 last RFID
+0x20 sonar A in cm, 0x20 LSB, 0x21 MSB 
+0x30 sonar B in cm, 0x30 LSB, 0x31 MSB 
+*/
+
 #define F_CPU     2000000UL
 
+//Debug
 #define ENABLE_UART_D0  1
 #define D0_BAUD			115200
 #define D0_CLK2X		0
 
+//RFID
 #define ENABLE_UART_C1  1
 #define C1_BAUD			9600
 #define C1_CLK2X		0
-
 #define NUM_BYTES 16
+
+//TWI
 #define SLAVE_ADDRESS 0x01
-
-//TX = Port D 3 <Debug>
-//RX = Port D 2
-
-//TX = Port C 7
-//RX = Port C 6 <RFID>
-
-//Trigger sonar A = Port C 2
-//Trigger sonar B = Port C 3
-//Echo    sonar A = Port C 4
-//Echo    sonar B = Port C 5
-
-//I2C
-//0x10 last RFID
-//0x20 sonar A in cm
-//0x30 sonar B in cm
 
 #include "uart.h"
 #include "twi_slave_driver.h"
@@ -37,10 +50,10 @@
 
 TWI_Slave_t twiSlave;
 
-char str[256];
-uint8_t receiveArray[NUM_BYTES];
-uint8_t transmitArray[256];
-volatile uint8_t switchy;
+char str[256]; //uart debug temp
+uint8_t RFIDin[NUM_BYTES]; //RFID data
+uint8_t TWIout[256]; //TWI out array
+volatile uint8_t sonarswitch; //for sonar trigger
 
 void TWIC_SlaveProcessData(void);
 void init_all(void);
@@ -52,19 +65,18 @@ int main(void)
 	sprintf(str, "UART Connected!!!\n\r");
 	uart_puts(&uartD0, str);
 	
+	TWIout[0x00] = 'T';
+	TWIout[0x01] = 'W';
+	TWIout[0x02] = 'I';
+	TWIout[0x03] = ' ';
+	
 	uint8_t x = 0;
 	while(1)
 	{
-		transmitArray[0] = 'T';
-		transmitArray[1] = 'W';
-		transmitArray[2] = 'I';
-		transmitArray[3] = ' ';
-		transmitArray[4] = '0'+x;
-		sprintf(str, "still alive! %d\n\r", x);
+		TWIout[4] = '0'+x;
+		sprintf(str, "Sonar A = %d cm\n\r", ((TWIout[0x21]<<8)+TWIout[0x20]));
 		uart_puts(&uartD0, str);
-		sprintf(str, "Sonar A = %c%c%c cm\n\r", transmitArray[0x20], transmitArray[0x21], transmitArray[0x22]);
-		uart_puts(&uartD0, str);
-		sprintf(str, "Sonar B = %c%c%c cm\n\r", transmitArray[0x30], transmitArray[0x31], transmitArray[0x32]);
+		sprintf(str, "Sonar B = %d cm\n\r", ((TWIout[0x31]<<8)+TWIout[0x30]));
 		uart_puts(&uartD0, str);
 		x++;
 		if (x>=10)
@@ -75,17 +87,17 @@ int main(void)
 	}
 }
 
-ISR(TWIC_TWIS_vect)
+ISR(TWIC_TWIS_vect) //TWI
 {
 	TWI_SlaveInterruptHandler(&twiSlave);
 }
 
-ISR(PORTC_INT0_vect)//start uart delay
+ISR(PORTC_INT0_vect) //start uart delay
 {
 	TCC1.CTRLA     = TC_CLKSEL_DIV1024_gc;
 }
 
-ISR(TCC1_OVF_vect)//uart delay
+ISR(TCC1_OVF_vect) //uart delay
 {
 	TCC1.CTRLA     = TC_CLKSEL_OFF_gc;
 	int i = 0;
@@ -93,9 +105,9 @@ ISR(TCC1_OVF_vect)//uart delay
 	{
 		if (USART_RXBufferData_Available(&uartC1))
 		{
-			receiveArray[i] = USART_RXBuffer_GetByte(&uartC1);
+			RFIDin[i] = USART_RXBuffer_GetByte(&uartC1);
 		}else{
-			receiveArray[i] = '_';
+			RFIDin[i] = '_';
 		}
 		i++;
 	}
@@ -104,98 +116,58 @@ ISR(TCC1_OVF_vect)//uart delay
 	uart_puts(&uartD0, "ID: ");
 	while (i < NUM_BYTES)
 	{
-		transmitArray[i+0x0F] = receiveArray[i];
-		uart_putc(&uartD0, receiveArray[i]);
+		TWIout[i+0x0F] = RFIDin[i];
+		uart_putc(&uartD0, RFIDin[i]);
 		i++;
 	}
-	transmitArray[5] = 'B'; //beep -> NXT
+	TWIout[5] = 'B'; //beep -> NXT
 }
 
 ISR(TCD0_CCA_vect) //sonar A
 {
 	uint16_t time = TCD0.CCA;
-	transmitArray[0x22] = '0';
-	transmitArray[0x21] = '0';
-	transmitArray[0x20] = '0';
-	int cm = time/116;
-
-	while(cm>=100)
-	{
-		transmitArray[0x22]++;
-		cm-=100;
-	}
-	while(cm>=10)
-	{
-		transmitArray[0x21]++;
-		cm-=10;
-	}
-	while(cm>=1)
-	{
-		transmitArray[0x20]++;
-		cm-=1;
-	}
-	
+	uint16_t cm = time/116;
+	TWIout[0x20] = cm & 0x00FF;	//LSB
+	TWIout[0x21] = cm>>8;		//MSB
 	TCD0.CTRLFSET = TC_CMD_RESTART_gc;
 }
 
 ISR(TCD1_CCA_vect) //Sonar B
 {
 	uint16_t time = TCD1.CCA;
-	transmitArray[0x32] = '0';
-	transmitArray[0x31] = '0';
-	transmitArray[0x30] = '0';
-	int cm = time/116;
-	
-	while(cm>=100)
-	{
-		transmitArray[0x32]++;
-		cm-=100;
-	}
-	while(cm>=10)
-	{
-		transmitArray[0x31]++;
-		cm-=10;
-	}
-	while(cm>=1)
-	{
-		transmitArray[0x30]++;
-		cm-=1;
-	}
-	
+	uint16_t cm = time/116;
+	TWIout[0x30] = cm & 0x00FF;	//LSB
+	TWIout[0x31] = cm>>8;		//MSB
 	TCD1.CTRLFSET = TC_CMD_RESTART_gc;
 }
 
 ISR(TCE0_OVF_vect) //trigger sonar, cascading
 {
-	if (switchy)
+	if (sonarswitch)
 	{
 		PORTC.OUTSET = PIN2_bm;
 		_delay_us(10);
 		PORTC.OUTCLR = PIN2_bm;
-		switchy = 0;
+		sonarswitch = 0;
 	} 
 	else
 	{
 		PORTC.OUTSET = PIN3_bm;
 		_delay_us(10);
 		PORTC.OUTCLR = PIN3_bm;
-		switchy = 1;
+		sonarswitch = 1;
 	}
 }
 
 void TWIC_SlaveProcessData(void)
 {
 	uint8_t askbyte = twiSlave.receivedData[0];
-	for(uint8_t i = 0; i < NUM_BYTES; i++)
+	//give the right information back
+	for(uint8_t i = 0; i < 16; i++)
 	{
-		if (transmitArray[i+askbyte] >= ' ')
-		{
-			twiSlave.sendData[i] = transmitArray[i+askbyte];
-			}else{
-			twiSlave.sendData[i] = '_';
-		}
+		twiSlave.sendData[i] = TWIout[i+askbyte];
 	}
-	if(twiSlave.receivedData[0] == 0x01) transmitArray[5] = '_';
+	if(twiSlave.receivedData[0] == 0x01) TWIout[5] = ' '; //card has been read
 }
 
 void init_all(void)
@@ -217,7 +189,7 @@ void init_all(void)
 	TCE0.CTRLB     = TC_WGMODE_NORMAL_gc;
 	TCE0.CTRLA     = TC_CLKSEL_DIV1024_gc;
 	TCE0.INTCTRLA  = TC_OVFINTLVL_LO_gc;
-	TCE0.PER       = 500;//195;//~10Hz so 5Hz each
+	TCE0.PER       = 195;//~10Hz so 5Hz each
 	//timer for sonar A
 	PORTC.PIN4CTRL = PORT_ISC_BOTHEDGES_gc;
 	EVSYS.CH0MUX = EVSYS_CHMUX_PORTC_PIN4_gc;

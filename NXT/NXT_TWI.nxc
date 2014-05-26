@@ -1,92 +1,58 @@
-//////// Groep J ////////
-//    Hoofdprogramma   //
-//      I2C Test       //
-/////////////////////////
-
 byte bufferin[2]; //write
 byte bufferout[]; //read
 byte count = 11; //read plus 1
 
-
-byte id = 0;
+byte card_detected = 0;
 
 void TWI(byte askbyte)
 {
-	bufferin[1] = askbyte; //ask
+	bufferin[1] = askbyte;
 	I2CBytes(S4, bufferin, count, bufferout);
-}
-
-void morse(int x)
-{	//M
-	PlayTone(700, 100);
-	Wait(200);
-	PlayTone(700, 100);
-	Wait(300);
-	//O
-	PlayTone(700, 100);
-	Wait(200);
-	PlayTone(700, 100);
-	Wait(200);
-	PlayTone(700, 100);
-	Wait(300); 
-	while(x>0)
-	{
-		PlayTone(700, 50);
-		Wait(100);
-		x--;
-	}
 }
 
 task main()
 {
-    bufferin[0] = 0x02; //addres slave
-	SetSensorLowspeed(S4);
+    bufferin[0] = 0x02; //addres slave Xmega (0x01 in atmelstudio)
+	SetSensorLowspeed(S4); //init TWI
 
-	while(TRUE)
+	while(!FALSE)
 	{
-		//ClearScreen();
+		//card detection and still running check
 		TWI(0x00);
 		TextOut(0, LCD_LINE1, bufferout);
 		if(bufferout[5] == 'B')
 		{
-			TWI(0x01); //reset
-			id = 1;
+			TWI(0x01); //card has been read
+			card_detected = 1;
 			
 		}
-
-		//Sonar
-		TextOut(0, LCD_LINE6, "Sonar A:      cm");
-		TextOut(0, LCD_LINE7, "Sonar B:      cm");
+		
+		//Sonar Sensor A
 		TWI(0x20);
-		TextOut(0, LCD_LINE4, bufferout);
+		TextOut(0, LCD_LINE6, "Sonar A:      cm");
+		int num = (bufferout[1]<<8)+bufferout[0];
+		if(num<5)PlayTone(1500, 100);
+		NumOut(12*5, LCD_LINE6, num);
+
+		//Sonar Sensor B
 		TWI(0x30);
-		TextOut(0, LCD_LINE5, bufferout);
+		TextOut(0, LCD_LINE7, "Sonar B:      cm");
+		num = (bufferout[1]<<8)+bufferout[0];
+		NumOut(12*5, LCD_LINE7, num);
 
 		// RFID
 		TWI(0x10);
-		//sound
-		if(id == 1)
+		if(card_detected == 1)
 		{
-		
-			switch (bufferout[9]){
-				case '1': morse(1);//1
-				break;
-				case '2': morse(2);//2
-				break;
-				case 'A': morse(3);//3
-				break;
-				case 'E': morse(4);//4
-				break;
-				case '9': morse(5);//5
-				break;
-				default: PlayTone(500, 100);
-				break;
-			}
-			id = 0;
+			PlayTone(500, 100);
+			//card detected
+			//need to do something
+			card_detected = 0;
 		}
 		TextOut(0, LCD_LINE8, "RFID:");
 		TextOut(8*5, LCD_LINE8, bufferout);
-    	Wait(100);
+
+    	Wait(100); //for keeping things stable
 	}
 	
 }
