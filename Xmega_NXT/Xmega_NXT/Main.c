@@ -15,13 +15,6 @@ Echo 	= Port C 4
 Sonar B
 Trigger = Port C 3
 Echo   	= Port C 5
-
-I2C Adresses
-0x00 card detection and still running check
-0x01 card has been read
-0x10 last RFID
-0x20 sonar A in cm, 0x20 LSB, 0x21 MSB 
-0x30 sonar B in cm, 0x30 LSB, 0x31 MSB 
 */
 
 #define F_CPU     2000000UL
@@ -35,10 +28,21 @@ I2C Adresses
 #define ENABLE_UART_C1  1
 #define C1_BAUD			9600
 #define C1_CLK2X		0
-#define NUM_BYTES 16
+#define RFID_UART_NUM_BYTES 16
 
 //TWI
 #define SLAVE_ADDRESS 0x01
+
+#define RFID_DETECT_ADDRESS 0x00
+#define RFID_NUMBER_ADDRESS 0x01
+#define SONAR_A_ADDRESS 0x0B
+#define SONAR_B_ADDRESS 0x0D
+#define RFID_DETECT_RESET_ADDRES 0x10
+
+#define RFID_DETECT_BYTES 1
+#define RFID_NUMBER_BYTES 10
+#define SONAR_A_BYTES 2
+#define SONAR_B_BYTES 2
 
 #include "uart.h"
 #include "twi_slave_driver.h"
@@ -51,9 +55,8 @@ I2C Adresses
 TWI_Slave_t twiSlave;
 
 char str[256]; //uart debug temp
-uint8_t RFIDin[NUM_BYTES]; //RFID data
-uint8_t TWIout[256]; //TWI out array
-volatile uint8_t sonarswitch; //for sonar trigger
+uint8_t TWIOut[0xFF]; //TWI out array
+volatile uint8_t sonarSwitch; //for sonar trigger
 
 void TWIC_SlaveProcessData(void);
 void init_all(void);
@@ -61,28 +64,23 @@ void init_all(void);
 int main(void)
 {
 	init_all();
-	
+	TWIOut[RFID_NUMBER_ADDRESS] = 'N';
+	TWIOut[RFID_NUMBER_ADDRESS+1] = 'o';
+	TWIOut[RFID_NUMBER_ADDRESS+2] = ' ';
+	TWIOut[RFID_NUMBER_ADDRESS+3] = 'D';
+	TWIOut[RFID_NUMBER_ADDRESS+4] = 'a';
+	TWIOut[RFID_NUMBER_ADDRESS+5] = 't';
+	TWIOut[RFID_NUMBER_ADDRESS+6] = 'a';
 	sprintf(str, "UART Connected!!!\n\r");
 	uart_puts(&uartD0, str);
 	
-	TWIout[0x00] = 'T';
-	TWIout[0x01] = 'W';
-	TWIout[0x02] = 'I';
-	TWIout[0x03] = ' ';
-	
-	uint8_t x = 0;
 	while(1)
 	{
-		TWIout[4] = '0'+x;
-		sprintf(str, "Sonar A = %d cm\n\r", ((TWIout[0x21]<<8)+TWIout[0x20]));
+		sprintf(str, "Sonar A = %d cm\n\r", ((TWIOut[SONAR_A_ADDRESS+1]<<8)+TWIOut[SONAR_A_ADDRESS]));
 		uart_puts(&uartD0, str);
-		sprintf(str, "Sonar B = %d cm\n\r", ((TWIout[0x31]<<8)+TWIout[0x30]));
+		sprintf(str, "Sonar B = %d cm\n\r", ((TWIOut[SONAR_B_ADDRESS+1]<<8)+TWIOut[SONAR_B_ADDRESS]));
 		uart_puts(&uartD0, str);
-		x++;
-		if (x>=10)
-		{
-			x = 0;
-		}
+
 		_delay_ms(1000);
 	}
 }
@@ -100,35 +98,32 @@ ISR(PORTC_INT0_vect) //start uart delay
 ISR(TCC1_OVF_vect) //uart delay
 {
 	TCC1.CTRLA     = TC_CLKSEL_OFF_gc;
-	int i = 0;
-	while (i < NUM_BYTES)
+
+	uint8_t RFIDDataIn[RFID_UART_NUM_BYTES]; //RFID data
+	for(int i=0; i<RFID_UART_NUM_BYTES; i++)
 	{
 		if (USART_RXBufferData_Available(&uartC1))
 		{
-			RFIDin[i] = USART_RXBuffer_GetByte(&uartC1);
+			RFIDDataIn[i] = USART_RXBuffer_GetByte(&uartC1);
 		}else{
-			RFIDin[i] = '_';
+			RFIDDataIn[i] = '_';
 		}
-		i++;
 	}
 	
-	i = 0;
-	uart_puts(&uartD0, "ID: ");
-	while (i < NUM_BYTES)
+	for(int i=0; i<RFID_NUMBER_BYTES; i++)
 	{
-		TWIout[i+0x0F] = RFIDin[i];
-		uart_putc(&uartD0, RFIDin[i]);
-		i++;
+		TWIOut[RFID_NUMBER_ADDRESS+i] = RFIDDataIn[i+1];;
 	}
-	TWIout[5] = 'B'; //beep -> NXT
+
+	TWIOut[RFID_DETECT_ADDRESS] = 1;
 }
 
 ISR(TCD0_CCA_vect) //sonar A
 {
 	uint16_t time = TCD0.CCA;
 	uint16_t cm = time/116;
-	TWIout[0x20] = cm & 0x00FF;	//LSB
-	TWIout[0x21] = cm>>8;		//MSB
+	TWIOut[SONAR_A_ADDRESS] = cm & 0x00FF;	//LSB
+	TWIOut[SONAR_A_ADDRESS+1] = cm>>8;		//MSB
 	TCD0.CTRLFSET = TC_CMD_RESTART_gc;
 }
 
@@ -136,38 +131,38 @@ ISR(TCD1_CCA_vect) //Sonar B
 {
 	uint16_t time = TCD1.CCA;
 	uint16_t cm = time/116;
-	TWIout[0x30] = cm & 0x00FF;	//LSB
-	TWIout[0x31] = cm>>8;		//MSB
+	TWIOut[SONAR_B_ADDRESS] = cm & 0x00FF;	//LSB
+	TWIOut[SONAR_B_ADDRESS+1] = cm>>8;		//MSB
 	TCD1.CTRLFSET = TC_CMD_RESTART_gc;
 }
 
 ISR(TCE0_OVF_vect) //trigger sonar, cascading
 {
-	if (sonarswitch)
+	if (sonarSwitch)
 	{
 		PORTC.OUTSET = PIN2_bm;
 		_delay_us(10);
 		PORTC.OUTCLR = PIN2_bm;
-		sonarswitch = 0;
+		sonarSwitch = 0;
 	} 
 	else
 	{
 		PORTC.OUTSET = PIN3_bm;
 		_delay_us(10);
 		PORTC.OUTCLR = PIN3_bm;
-		sonarswitch = 1;
+		sonarSwitch = 1;
 	}
 }
 
 void TWIC_SlaveProcessData(void)
 {
 	uint8_t askbyte = twiSlave.receivedData[0];
-	//give the right information back
-	for(uint8_t i = 0; i < 16; i++)
+	for(uint8_t i = 0; i < 16; i++) //give the right information back
 	{
-		twiSlave.sendData[i] = TWIout[i+askbyte];
+		twiSlave.sendData[i] = TWIOut[i+askbyte];
 	}
-	if(twiSlave.receivedData[0] == 0x01) TWIout[5] = ' '; //card has been read
+	
+	if(twiSlave.receivedData[0] == RFID_DETECT_RESET_ADDRES) TWIOut[RFID_DETECT_ADDRESS] = 0; //card has been read
 }
 
 void init_all(void)
@@ -215,7 +210,7 @@ void init_all(void)
 	TWI_SlaveInitializeDriver(&twiSlave, &TWIC, TWIC_SlaveProcessData);
 	TWI_SlaveInitializeModule(&twiSlave, SLAVE_ADDRESS, TWI_SLAVE_INTLVL_MED_gc);
 	
-	// Turnon interrupts //
+	// Turn on interrupts //
 	PMIC.CTRL = PMIC_LOLVLEN_bm|PMIC_MEDLVLEN_bm;
 	sei();
-}
+}	
