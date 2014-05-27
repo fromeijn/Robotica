@@ -65,11 +65,11 @@ task FreeGridTask() {
 		switch(currentTask) {
 
 			case FIND_CORNER:
-				findCorner();
+				currentTask = findCorner();
 			break;
 
 			case FOLLOW_GRID:
-				followGrid();
+				currentTask = followGrid();
 			break;
 
 		}
