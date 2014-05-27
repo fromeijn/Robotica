@@ -1,0 +1,61 @@
+task main(){
+
+    SetSensorUltrasonic(IN_4);
+    SetSensorLight(IN_2);                         //het maakt niet uit welke infraroodsensor hier gebruikt wordt
+    
+    int objectsearch = 0;
+    
+    while(true){
+
+        Wait(250);                                 //meet interval. NXT en sensor hebben tijd nodig om een meting te doen
+                                                   //maak de wait te lang en de lichtsensor kan tussen metingen door de lijn missen
+                                                   //te kort en de lichtsensor kan onzinwaarden geven die het programma in de war brengen
+        ClearScreen();
+        //NumOut(0, 0, SensorUS(IN_4));            //laat afstand zien om te testen
+        //NumOut(0, 0, Sensor(IN_2));              //laat lichtwaarde zien om te testen
+
+        if(objectsearch == 0) {
+        
+            if(SensorUS(IN_4) < 60){               //sensor aan de zijkant, zoek object
+              OnFwd(OUT_B, 50);
+              OnRev(OUT_A, 50);
+              Wait(750);                           //draaitijd, draai in de richting van het object
+              OnFwd(OUT_AB, 0);
+              Wait(500);                           //wacht even, dit helpt met rechte bocht maken
+              OnFwd(OUT_AB, 80);                   //rijd naar het object
+              objectsearch = 1;
+              }
+            
+            } else if(objectsearch == 1) {         //rijd tot robot voor object staat
+
+              if(SensorUS(IN_4) < 25){             //sensor aan de voorkant
+                  OnFwd(OUT_AB, 0);                //stop wanneer de robot het object bereikt heeft
+                  Wait(1000);                      //geef de robot wat tijd om de RFID tag te lezen
+                  OnRev(OUT_A, 35);                //rijd recht naar achteren. de motoren gaan niet even snel
+                  OnRev(OUT_B, 30);
+                  objectsearch = 2;
+              }
+                  
+            } else if(objectsearch == 2) {         //rijd achteruit totdat de lichtsensor de lijn weer ziet
+
+              if(Sensor(IN_2) < 48){               //pas dit aan, aan de zwart calibratie
+                  OnFwd(OUT_AB, 0);
+                  Wait(500);                       //wacht stilstaande, helpt met juiste richting vervolgende bewegingen
+                  OnFwd(OUT_AB, 50);               //ga een beetje vooruit zodat de robot op de lijn staat
+                  Wait(800);
+                  OnFwd(OUT_AB, 0);
+                  Wait(500);                       //wacht stilstaande, helpt met bocht
+                  OnRev(OUT_B, 50);
+                  OnFwd(OUT_A, 50);
+                  Wait(750);
+                  OnFwd(OUT_AB, 0);
+                  objectsearch = 3;
+                  
+              } else if(objectsearch == 3) {
+                  //zet hier code voor wat de robot moet doen wanneer hij weer ongeveer op de lijn staat.
+                  objectsearch = 0;                 //klaar voor volgende object
+              }
+            }
+
+      }
+}

@@ -1,11 +1,392 @@
-#include "Libs/FreeGrid.nxc"
+#define LEFT 0
+#define CENTER 1
+#define RIGHT 2
+
+#define NORTH 0
+#define EAST 1
+#define SOUTH 2
+#define WEST 3
+
+#define FIND_CORNER 0
+#define FOLLOW_GRID 1
+
+unsigned char BLUETOOTH_STRING = 0;
+
+bool runProgram;
+
+unsigned char direction = 0;
+unsigned char posX = 0;
+unsigned char posY = 0;
+
+unsigned char grid_size_x= 5;
+unsigned char grid_size_y = 5;	
+
+unsigned char left_bm = 1 << 2;
+unsigned char center_bm = 1 << 1;
+unsigned char right_bm = 1 << 0;
+
+bool executeFreeGrid = true;
+bool pauseFreeGrid = false;
+
+bool leftHold = false;
+bool centerHold = false;
+bool rightHold = false;
+
+unsigned char numCornerFound = 0;
+
+unsigned char currentTask;
+
+unsigned long firstTick, lastTick;
+unsigned char lastLane;
+
+unsigned char motorLeft, motorRight, sensLeft, sensCenter, sensRight, sensXMega;
+
+bool showDisplay;
+unsigned char lS;
+unsigned char blackThreshold;
+unsigned char calibratedBlack[3];
+
+void Init(unsigned char _motorLeft, unsigned char _motorRight, unsigned char _sensLeft, unsigned char _sensCenter unsigned char _sensRight, unsigned char _sensXMega);
+void Start(void);
+void UpdateLine(void);
+unsigned char CheckSensors();
+unsigned char FindCorner(void);
+unsigned char FollowGrid(void);
+unsigned char GetBackToLine(void);
+void Calibrate(void);
+void UpdatePos(void);
+void TurnDegrees(unsigned char degrees);
+void FollowLine(void);
+void DrawInfo(void);
+bool BlueToothStr(string str);
+bool BlueToothSend(unsigned char messageId, unsigned char &data[]);
 
 task main() {
 
-	fgrid_init(OUT_A, OUT_B, IN_1, IN_2, IN_3);
-	fgrid_setDisplay(true);
-	
-	fgrid_calibrate();
-	fgrid_start();
+	Init(OUT_A, OUT_B, S1, S2, S3, S4);
 
+  Calibrate();
+	runProgram = true;
+
+	Start(); // Last program initialisation
+
+	while(runProgram) {
+
+		currentTask = CheckSensors();
+
+		switch(currentTask) {
+
+			case FIND_CORNER:
+				currentTask = FindCorner();
+			break;
+
+			case FOLLOW_GRID:
+				currentTask = FollowGrid();
+			break;
+
+		}
+
+	}
+}
+
+void Init(unsigned char _motorLeft, unsigned char _motorRight, unsigned char _sensLeft, unsigned char _sensCenter unsigned char _sensRight, unsigned char _sensXMega) {
+
+	motorLeft = _motorLeft;
+	motorRight = _motorRight;
+	sensLeft = _sensLeft;
+	sensCenter = _sensCenter;
+	sensRight = _sensRight;
+	sensXMega = _sensXMega;
+
+	showDisplay = false;
+	blackThreshold = 10;
+
+	calibratedBlack[LEFT] = 35;
+	calibratedBlack[CENTER] = 35;
+	calibratedBlack[RIGHT] = 35;
+
+	currentTask = FIND_CORNER;
+
+	OnFwd(motorLeft, 0);
+	OnFwd(motorLeft, 0);
+
+	SetSensorLight(sensLeft);
+	SetSensorLight(sensCenter);
+	SetSensorLight(sensRight);
+
+}
+
+void SetDisplay(bool show) {
+
+	showDisplay = show;
+
+}
+
+void Start() {
+
+	firstTick = lastTick = CurrentTick();
+}
+
+void UpdateLine() {
+
+  lS = (Sensor(sensLeft) < (calibratedBlack[LEFT] + blackThreshold)) << 2;
+  lS |= (Sensor(sensCenter) < (calibratedBlack[CENTER] + blackThreshold)) << 1;
+  lS |= (Sensor(sensRight) < (calibratedBlack[RIGHT] + blackThreshold)) << 0;
+  
+}
+
+void Calibrate() {
+
+     ClearScreen();
+     TextOut(0, LCD_LINE1, "Calibrate black");
+     while( ! ButtonPressed(BTNCENTER, false));
+
+     Wait(500);
+     calibratedBlack[RIGHT] = Sensor(sensRight);
+     calibratedBlack[CENTER] = Sensor(sensCenter);
+     calibratedBlack[LEFT] = Sensor(sensLeft);
+
+     ClearScreen();
+     TextOut(0, LCD_LINE1, "Let's go!");
+     while( ! ButtonPressed(BTNCENTER, false));
+
+     Wait(500);
+
+}
+
+unsigned char CheckSensors() {
+
+         return currentTask;
+}
+
+unsigned char GetBackToLine() {
+
+	OnFwd(motorRight, -60);
+	OnFwd(motorLeft, -60);
+	Wait(500);
+	if(lastLane == LEFT) {
+		OnFwd(motorRight, 60);
+		OnFwd(motorLeft, -85);
+	} else {
+		OnFwd(motorRight, -85);
+		OnFwd(motorLeft, 60);
+
+	}
+	bool foundLine = false;
+	while(! foundLine) {
+
+		UpdateLine();
+		if( (lS & left_bm) || (lS & center_bm) || (lS & right_bm) ) {
+
+			foundLine = true;
+
+		}
+
+	}
+
+	if(lastLane == LEFT) {
+
+		OnFwd(motorRight, 30);
+		OnFwd(motorLeft, -30);
+
+	} else {
+
+		OnFwd(motorRight, -30);
+		OnFwd(motorLeft, 30);	
+
+	}
+
+	foundLine = false;
+	while(! foundLine) {
+
+		UpdateLine();
+		if(lastLane == LEFT) {
+			if(lS & right_bm) {
+
+				foundLine = true;
+
+			}
+		} else {
+
+			if(lS & left_bm) {
+
+				foundLine = true;
+
+			}
+
+		}
+
+	}
+	bool _centerHold = false;
+	bool stabilized = false;
+	while(! stabilized) {
+		UpdateLine();
+		if(lS & center_bm) {
+			if(! _centerHold) {
+
+				_centerHold = true;
+				lastTick = CurrentTick();
+
+			}
+			OnFwd(motorRight, 80);
+			OnFwd(motorLeft, 30);
+
+		} else {
+
+			_centerHold = false;
+			if( (CurrentTick() - lastTick) < 230) {
+				stabilized = true;
+				ClearScreen();
+					NumOut(0, LCD_LINE1, (CurrentTick() - lastTick));
+
+			} else {
+				OnFwd(motorRight, 30);
+				OnFwd(motorLeft, 80);
+			}
+		}
+	}
+
+	lastTick = CurrentTick();
+
+	return currentTask;
+
+}
+
+unsigned char FindCorner() {
+
+  UpdateLine();
+
+    OnFwd(motorRight, 100);
+		OnFwd(motorLeft, 85);
+	if(lS & center_bm) {
+
+		lastTick = CurrentTick();
+		OnFwd(motorRight, 100);
+		OnFwd(motorLeft, 85);
+
+	} else {
+
+		if(CurrentTick() - lastTick > 600) {
+			GetBackToLine();
+
+			
+			numCornerFound++;
+			if(numCornerFound >= 2) {
+
+				return FOLLOW_GRID;
+
+			}
+			
+			OnFwd(motorRight, 0);
+			OnFwd(motorLeft, 0);
+			
+			OnFwd(motorRight, 85);
+			OnFwd(motorLeft, 100);
+			lastTick = CurrentTick();
+
+		} else {
+
+			OnFwd(motorRight, 85);
+			OnFwd(motorLeft, 100);
+		}
+
+	}
+
+	return currentTask;
+
+}
+
+
+//coördinaten syteem
+void UpdatePos()
+{
+	if(direction == NORTH) posY++;
+	if(direction == EAST) posX++;
+	if(direction == SOUTH) posY--;
+	if(direction == WEST) posX--;
+}
+
+void TurnDegrees(unsigned char degrees)
+{
+	OnFwd(motorLeft, 100);
+	OnFwd(motorRight, 0);
+	Wait(490);
+	direction++;
+	if(direction > 3) direction = 0;
+}
+
+void DrawInfo() {
+    //maybe graphics?
+     ClearScreen();
+     TextOut(0, LCD_LINE1, "direction = ");
+     TextOut(0, LCD_LINE2, "X         = ");
+     TextOut(0, LCD_LINE3, "Y         = ");
+     TextOut(0, LCD_LINE4, "task      = ");
+     NumOut(14*5, LCD_LINE1, direction);
+     NumOut(14*5, LCD_LINE2, posX);
+     NumOut(14*5, LCD_LINE3, posY);
+     NumOut(14*5, LCD_LINE4, currentTask);
+}
+
+void FollowGrid() {
+	DrawInfo();
+	UpdateLine();
+
+	if(lS & center_bm)
+	{
+		lastTick = CurrentTick();
+		OnFwd(motorRight, 100);
+		OnFwd(motorLeft, 85);
+	}else
+	{
+		OnFwd(motorRight, 85);
+		OnFwd(motorLeft, 100);
+	}
+
+	if((lS & left_bm) && (! leftHold))
+	{
+		//updatePos();
+		if((posX == 0 || posY == 5) && (posX == 0 || posY == 5))
+		{
+			TurnDegrees(90);
+		}
+		leftHold = true;
+		lastLane = LEFT;
+	}	
+
+	if((lS & right_bm) && (! rightHold))
+	{
+		rightHold = true;
+		lastLane = RIGHT;
+	}
+
+	if(!(lS & left_bm))
+	{
+		leftHold = false;
+	}
+	
+	if(!(lS & right_bm))
+	{
+		rightHold = false;
+	}
+}
+
+bool BlueToothStr(string str) {
+
+     unsigned char strBuf[128];
+     StrToByteArray(str, strBuf);
+     
+     BlueToothSend(BLUETOOTH_STRING, strBuf);
+}
+
+bool BlueToothSend(unsigned char messageId, unsigned char &data[]) {
+
+	if(BluetoothStatus(CONN_BT0) != NO_ERR) {
+
+		return true;
+
+	}
+
+	BluetoothWrite(CONN_BT0, data);
+	
 }
