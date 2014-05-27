@@ -10,6 +10,23 @@
 #define FIND_CORNER 0
 #define FOLLOW_GRID 1
 
+#define SLAVE_ADDRESS 0x02 //address slave Xmega (0x01 in atmelstudio)
+#define RFID_DETECT_ADDRESS 0x00
+#define RFID_NUMBER_ADDRESS 0x01
+#define SONAR_A_ADDRESS 0x0B
+#define SONAR_B_ADDRESS 0x0D
+#define RFID_DETECT_RESET_ADDRES 0x10
+
+#define RFID_DETECT_BYTES 1
+#define RFID_NUMBER_BYTES 11
+#define SONAR_A_BYTES 2
+#define SONAR_B_BYTES 2
+
+byte RFIDDetect;
+byte RFIDNumber[10];
+int sonarA;
+int sonarB;
+
 unsigned char BLUETOOTH_STRING = 0;
 
 bool runProgram;
@@ -61,12 +78,13 @@ void TurnDegrees(unsigned char degrees);
 void DrawInfo(void);
 bool BlueToothStr(string str);
 bool BlueToothSend(unsigned char messageId, unsigned char &data[]);
+void ReadAllXmegaData(void);
+void ConfirmRFID(void);
 
 task main() {
 
 	Init(OUT_B, OUT_A, S3, S2, S1, S4);
-
-  Calibrate();
+  	Calibrate();
 	runProgram = true;
 
 	Start(); // Last program initialisation
@@ -114,6 +132,7 @@ void Init(unsigned char _motorLeft, unsigned char _motorRight, unsigned char _se
 	SetSensorLight(sensLeft);
 	SetSensorLight(sensCenter);
 	SetSensorLight(sensRight);
+	SetSensorLowspeed(sensXMega);
 
 	BlueToothStr("Init finished\n\r");
 
@@ -138,31 +157,32 @@ void UpdateLine() {
   
 }
 
-void Calibrate() {
+void Calibrate()
+{
+	ClearScreen();
+	TextOut(0, LCD_LINE1, "Calibrate black");
+	while( ! ButtonPressed(BTNCENTER, false));
 
-     ClearScreen();
-     TextOut(0, LCD_LINE1, "Calibrate black");
-     while( ! ButtonPressed(BTNCENTER, false));
+	Wait(500);
+	calibratedBlack[RIGHT] = Sensor(sensRight);
+	calibratedBlack[CENTER] = Sensor(sensCenter);
+	calibratedBlack[LEFT] = Sensor(sensLeft);
 
-     Wait(500);
-     calibratedBlack[RIGHT] = Sensor(sensRight);
-     calibratedBlack[CENTER] = Sensor(sensCenter);
-     calibratedBlack[LEFT] = Sensor(sensLeft);
+	ClearScreen();
+	TextOut(0, LCD_LINE1, "Let's go!");
+	while( ! ButtonPressed(BTNCENTER, false));
 
-     ClearScreen();
-     TextOut(0, LCD_LINE1, "Let's go!");
-     while( ! ButtonPressed(BTNCENTER, false));
-
-     BlueToothStr("Calibrate finished\n\r");
-     Wait(500);
-
-
-
+	BlueToothStr("Calibrate finished\n\r");
+	string temp;
+	sprintf(temp, "right = %d\n\r", calibratedBlack[RIGHT]);
+	BlueToothStr(temp);
+	Wait(500);
 }
 
-unsigned char CheckSensors() {
-
-         return currentTask;
+unsigned char CheckSensors()
+{
+	ReadAllXmegaData();
+	return currentTask;
 }
 
 unsigned char GetBackToLine() {
@@ -375,4 +395,30 @@ bool BlueToothSend(unsigned char messageId, unsigned char &data[]) {
 	
 }
 
+void ReadAllXmegaData(void)
+{
 
+	byte writeToTWI[1] = { SLAVE_ADDRESS, RFID_DETECT_ADDRESS };
+	byte readFromTWI[];
+	byte bytesToRead = 16;
+
+	I2CBytes(S4, writeToTWI, bytesToRead, readFromTWI);
+
+	RFIDDetect = readFromTWI[RFID_DETECT_ADDRESS];
+	for(int byteNumber=0; byteNumber<RFID_NUMBER_BYTES; byteNumber++)
+	{
+		RFIDNumber[byteNumber] = readFromTWI[RFID_NUMBER_ADDRESS+byteNumber];
+	}
+	sonarA = (readFromTWI[SONAR_A_ADDRESS+1]<<8)+readFromTWI[SONAR_A_ADDRESS];
+	sonarB = (readFromTWI[SONAR_B_ADDRESS+1]<<8)+readFromTWI[SONAR_B_ADDRESS];
+}
+
+void ConfirmRFID(void)
+{
+	byte writeToTWI[2] = { SLAVE_ADDRESS,  RFID_DETECT_RESET_ADDRES };
+	byte readFromTWI[];
+	byte bytesToRead = 2;
+	
+	I2CBytes(S4, writeToTWI, bytesToRead, readFromTWI);
+	RFIDDetect = 0;
+}
