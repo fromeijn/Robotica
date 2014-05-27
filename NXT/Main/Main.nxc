@@ -46,7 +46,7 @@ unsigned char lS;
 unsigned char blackThreshold;
 unsigned char calibratedBlack[3];
 
-void Init(unsigned char motorLeft, unsigned char motorRight, unsigned char sensLeft, unsigned char sensCenter unsigned char sensRight, unsigned char sensXMega);
+void Init(unsigned char _motorLeft, unsigned char _motorRight, unsigned char _sensLeft, unsigned char _sensCenter unsigned char _sensRight, unsigned char _sensXMega);
 void Start(void);
 void UpdateLine(void);
 unsigned char CheckSensors();
@@ -71,8 +71,6 @@ task main() {
 	Start(); // Last program initialisation
 
 	while(runProgram) {
- ClearScreen();
- NumOut(0, 0, currentTask);
 
 		currentTask = CheckSensors();
 
@@ -91,17 +89,17 @@ task main() {
 	}
 }
 
-void Init(unsigned char motorLeft, unsigned char motorRight, unsigned char sensLeft, unsigned char sensCenter unsigned char sensRight, unsigned char sensXMega) {
+void Init(unsigned char _motorLeft, unsigned char _motorRight, unsigned char _sensLeft, unsigned char _sensCenter unsigned char _sensRight, unsigned char _sensXMega) {
 
-	motorLeft = motorLeft;
-	motorRight = motorRight;
-	sensLeft = sensLeft;
-	sensCenter = sensCenter;
-	sensRight = sensRight;
-	sensXMega = sensXMega;
+	motorLeft = _motorLeft;
+	motorRight = _motorRight;
+	sensLeft = _sensLeft;
+	sensCenter = _sensCenter;
+	sensRight = _sensRight;
+	sensXMega = _sensXMega;
 
 	showDisplay = false;
-	blackThreshold = 15;
+	blackThreshold = 10;
 
 	calibratedBlack[LEFT] = 35;
 	calibratedBlack[CENTER] = 35;
@@ -158,7 +156,7 @@ void Calibrate() {
 
 unsigned char CheckSensors() {
 
-         return 0;
+         return currentTask;
 }
 
 unsigned char GetBackToLine() {
@@ -256,8 +254,10 @@ unsigned char GetBackToLine() {
 
 unsigned char FindCorner() {
 
-	UpdateLine();
+  UpdateLine();
 
+    OnFwd(motorRight, 100);
+		OnFwd(motorLeft, 85);
 	if(lS & center_bm) {
 
 		lastTick = CurrentTick();
@@ -266,8 +266,7 @@ unsigned char FindCorner() {
 
 	} else {
 
-		if(CurrentTick() - lastTick > 500) {
-
+		if(CurrentTick() - lastTick > 600) {
 			GetBackToLine();
 
 			
@@ -322,9 +321,11 @@ void DrawInfo() {
      TextOut(0, LCD_LINE1, "direction = ");
      TextOut(0, LCD_LINE2, "X         = ");
      TextOut(0, LCD_LINE3, "Y         = ");
+     TextOut(0, LCD_LINE4, "task      = ");
      NumOut(14*5, LCD_LINE1, direction);
      NumOut(14*5, LCD_LINE2, posX);
      NumOut(14*5, LCD_LINE3, posY);
+     NumOut(14*5, LCD_LINE4, currentTask);
 }
 
 void FollowGrid() {
