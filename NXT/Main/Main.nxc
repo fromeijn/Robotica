@@ -25,6 +25,8 @@ unsigned char left_bm = 1 << 2;
 unsigned char center_bm = 1 << 1;
 unsigned char right_bm = 1 << 0;
 
+unsigned char posUpdateCount = 0;
+
 bool executeFreeGrid = true;
 bool pauseFreeGrid = false;
 
@@ -56,14 +58,13 @@ unsigned char GetBackToLine(void);
 void Calibrate(void);
 void UpdatePos(void);
 void TurnDegrees(unsigned char degrees);
-void FollowLine(void);
 void DrawInfo(void);
 bool BlueToothStr(string str);
 bool BlueToothSend(unsigned char messageId, unsigned char &data[]);
 
 task main() {
 
-	Init(OUT_A, OUT_B, S1, S2, S3, S4);
+	Init(OUT_B, OUT_A, S3, S2, S1, S4);
 
   Calibrate();
 	runProgram = true;
@@ -99,7 +100,7 @@ void Init(unsigned char _motorLeft, unsigned char _motorRight, unsigned char _se
 	sensXMega = _sensXMega;
 
 	showDisplay = false;
-	blackThreshold = 10;
+	blackThreshold = 17;
 
 	calibratedBlack[LEFT] = 35;
 	calibratedBlack[CENTER] = 35;
@@ -113,6 +114,8 @@ void Init(unsigned char _motorLeft, unsigned char _motorRight, unsigned char _se
 	SetSensorLight(sensLeft);
 	SetSensorLight(sensCenter);
 	SetSensorLight(sensRight);
+
+	BlueToothStr("Init finished\n\r");
 
 }
 
@@ -150,7 +153,10 @@ void Calibrate() {
      TextOut(0, LCD_LINE1, "Let's go!");
      while( ! ButtonPressed(BTNCENTER, false));
 
+     BlueToothStr("Calibrate finished\n\r");
      Wait(500);
+
+
 
 }
 
@@ -164,19 +170,13 @@ unsigned char GetBackToLine() {
 	OnFwd(motorRight, -60);
 	OnFwd(motorLeft, -60);
 	Wait(500);
-	if(lastLane == LEFT) {
-		OnFwd(motorRight, 60);
-		OnFwd(motorLeft, -85);
-	} else {
-		OnFwd(motorRight, -85);
-		OnFwd(motorLeft, 60);
-
-	}
+	OnFwd(motorLeft, 60);
+	OnFwd(motorRight, -85);
 	bool foundLine = false;
 	while(! foundLine) {
 
 		UpdateLine();
-		if( (lS & left_bm) || (lS & center_bm) || (lS & right_bm) ) {
+		if( (lS & left_bm)) {
 
 			foundLine = true;
 
@@ -184,39 +184,6 @@ unsigned char GetBackToLine() {
 
 	}
 
-	if(lastLane == LEFT) {
-
-		OnFwd(motorRight, 30);
-		OnFwd(motorLeft, -30);
-
-	} else {
-
-		OnFwd(motorRight, -30);
-		OnFwd(motorLeft, 30);	
-
-	}
-
-	foundLine = false;
-	while(! foundLine) {
-
-		UpdateLine();
-		if(lastLane == LEFT) {
-			if(lS & right_bm) {
-
-				foundLine = true;
-
-			}
-		} else {
-
-			if(lS & left_bm) {
-
-				foundLine = true;
-
-			}
-
-		}
-
-	}
 	bool _centerHold = false;
 	bool stabilized = false;
 	while(! stabilized) {
@@ -228,20 +195,19 @@ unsigned char GetBackToLine() {
 				lastTick = CurrentTick();
 
 			}
-			OnFwd(motorRight, 80);
-			OnFwd(motorLeft, 30);
+			OnFwd(motorLeft, 80);
+			OnFwd(motorRight, 30);
 
 		} else {
 
 			_centerHold = false;
 			if( (CurrentTick() - lastTick) < 230) {
 				stabilized = true;
-				ClearScreen();
-					NumOut(0, LCD_LINE1, (CurrentTick() - lastTick));
+				BlueToothStr("Back on grid\n\r");
 
 			} else {
-				OnFwd(motorRight, 30);
-				OnFwd(motorLeft, 80);
+				OnFwd(motorLeft, 30);
+				OnFwd(motorRight, 80);
 			}
 		}
 	}
@@ -255,45 +221,102 @@ unsigned char GetBackToLine() {
 unsigned char FindCorner() {
 
   UpdateLine();
-
-    OnFwd(motorRight, 100);
-		OnFwd(motorLeft, 85);
+	
 	if(lS & center_bm) {
 
 		lastTick = CurrentTick();
-		OnFwd(motorRight, 100);
-		OnFwd(motorLeft, 85);
+		OnFwd(motorLeft, 100);
+		OnFwd(motorRight, 80);
 
 	} else {
 
-		if(CurrentTick() - lastTick > 600) {
+		if(CurrentTick() - lastTick > 550) {
+			BlueToothStr("Grid lost\n\r");
 			GetBackToLine();
 
 			
 			numCornerFound++;
 			if(numCornerFound >= 2) {
-
+				BlueToothStr("Found corner, follow grid\n\r");
 				return FOLLOW_GRID;
 
 			}
 			
-			OnFwd(motorRight, 0);
-			OnFwd(motorLeft, 0);
-			
-			OnFwd(motorRight, 85);
-			OnFwd(motorLeft, 100);
+			OnFwd(motorLeft, 80);
+			OnFwd(motorRight, 100);
 			lastTick = CurrentTick();
 
 		} else {
 
-			OnFwd(motorRight, 85);
-			OnFwd(motorLeft, 100);
+			OnFwd(motorLeft, 80);
+			OnFwd(motorRight, 100);
 		}
 
 	}
 
 	return currentTask;
 
+}
+
+unsigned char FollowGrid() {
+	DrawInfo();
+	UpdateLine();
+
+	if(lS & center_bm)
+	{
+		OnFwd(motorLeft, 100);
+		OnFwd(motorRight, 85);
+	}else
+	{
+		OnFwd(motorLeft, 85);
+		OnFwd(motorRight, 100);
+	}
+
+	if((lS & left_bm) && (! leftHold))
+	{
+		leftHold = true;
+		lastLane = LEFT;
+	}
+
+	if((lS & right_bm) && (! rightHold))
+	{
+
+ 		UpdatePos();
+		switch(posUpdateCount)
+		{
+			case 5: TurnDegrees(90);
+			break;
+			case 10: TurnDegrees(90);
+			break;
+			case 15: TurnDegrees(90);
+			break;
+			case 19: TurnDegrees(90);
+			break;
+			case 23: TurnDegrees(90);
+			break;
+			case 26: TurnDegrees(90);
+			break;
+			case 29: TurnDegrees(90);
+			break;
+			case 31: TurnDegrees(90);
+			break;
+		}
+		rightHold = true;
+		lastLane = RIGHT;
+
+		BlueToothStr("Lane detected\n\r");
+	}
+
+	if(!(lS & left_bm))
+	{
+		leftHold = false;
+	}
+
+	if(!(lS & right_bm))
+	{
+		rightHold = false;
+	}
+	return currentTask;
 }
 
 
@@ -304,13 +327,15 @@ void UpdatePos()
 	if(direction == EAST) posX++;
 	if(direction == SOUTH) posY--;
 	if(direction == WEST) posX--;
+	
+   posUpdateCount++;
 }
 
 void TurnDegrees(unsigned char degrees)
 {
 	OnFwd(motorLeft, 100);
 	OnFwd(motorRight, 0);
-	Wait(490);
+	Wait(420);
 	direction++;
 	if(direction > 3) direction = 0;
 }
@@ -328,50 +353,9 @@ void DrawInfo() {
      NumOut(14*5, LCD_LINE4, currentTask);
 }
 
-void FollowGrid() {
-	DrawInfo();
-	UpdateLine();
-
-	if(lS & center_bm)
-	{
-		lastTick = CurrentTick();
-		OnFwd(motorRight, 100);
-		OnFwd(motorLeft, 85);
-	}else
-	{
-		OnFwd(motorRight, 85);
-		OnFwd(motorLeft, 100);
-	}
-
-	if((lS & left_bm) && (! leftHold))
-	{
-		//updatePos();
-		if((posX == 0 || posY == 5) && (posX == 0 || posY == 5))
-		{
-			TurnDegrees(90);
-		}
-		leftHold = true;
-		lastLane = LEFT;
-	}	
-
-	if((lS & right_bm) && (! rightHold))
-	{
-		rightHold = true;
-		lastLane = RIGHT;
-	}
-
-	if(!(lS & left_bm))
-	{
-		leftHold = false;
-	}
-	
-	if(!(lS & right_bm))
-	{
-		rightHold = false;
-	}
-}
-
 bool BlueToothStr(string str) {
+
+	//string newStr;
 
      unsigned char strBuf[128];
      StrToByteArray(str, strBuf);
@@ -390,3 +374,5 @@ bool BlueToothSend(unsigned char messageId, unsigned char &data[]) {
 	BluetoothWrite(CONN_BT0, data);
 	
 }
+
+
