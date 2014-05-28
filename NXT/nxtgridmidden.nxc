@@ -1,0 +1,40 @@
+
+task main()
+{
+
+ int locatiearray[5][5];
+ int locx = 0;
+ int locy = 0;
+ int blokx = 0;
+ int bloky = 0;
+
+ locatiearray[0][0] = 1;
+ locatiearray[3][0] = 1;
+ locatiearray[3][3] = 1;
+ locatiearray[4][1] = 1;
+ locatiearray[4][4] = 1;
+
+ for(bloky; bloky<5; bloky++){
+   for(blokx; blokx<5; blokx++){
+        RectOut(23+10*blokx, 7+10*bloky, 10, 10);
+   }
+   blokx = 0;
+ }
+ bloky = 0;
+
+
+ for(locy; locy<5; locy++){
+   for(locx; locx<5; locx++){
+     if(locatiearray[locx][locy] == 1) {
+        CircleOut(28+10*locx, 12+10*locy, 3, 0x0020);
+     }
+  }
+  locx = 0;
+ }
+ locy = 0;
+
+ while(true) {
+
+ }
+
+}
