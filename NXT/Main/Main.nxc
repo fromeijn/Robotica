@@ -10,6 +10,9 @@
 #define FIND_CORNER 0
 #define FOLLOW_GRID 1
 
+#define SONARA_DETECT_RANGE 20
+#define SONARB_DETECT_RANGE 20
+
 #define SLAVE_ADDRESS 0x02 //address slave Xmega (0x01 in atmelstudio)
 #define RFID_DETECT_ADDRESS 0x00
 #define RFID_NUMBER_ADDRESS 0x01
@@ -24,10 +27,11 @@
 
 byte RFIDDetect;
 byte RFIDNumber[10];
-int sonarA;
-int sonarB;
+int sonarA = 0;
+int sonarB = 0;
 
 unsigned char BLUETOOTH_STRING = 0;
+string bleutoothTMP;
 
 bool runProgram;
 
@@ -50,6 +54,7 @@ bool pauseFreeGrid = false;
 bool leftHold = false;
 bool centerHold = false;
 bool rightHold = false;
+bool allowedToCheckForRFID = true;
 
 unsigned char numCornerFound = 0;
 
@@ -71,15 +76,17 @@ void UpdateLine(void);
 unsigned char CheckSensors();
 unsigned char FindCorner(void);
 unsigned char FollowGrid(void);
+unsigned char ScanRFID(void);
 unsigned char GetBackToLine(void);
 void Calibrate(void);
 void UpdatePos(void);
-void TurnDegrees(unsigned char degrees);
+void TurnDegrees(int degrees);
 void DrawInfo(void);
 bool BlueToothStr(string str);
 bool BlueToothSend(unsigned char messageId, unsigned char &data[]);
 void ReadAllXmegaData(void);
 void ConfirmRFID(void);
+
 
 task main() {
 
@@ -88,10 +95,11 @@ task main() {
 	runProgram = true;
 
 	Start(); // Last program initialisation
-
+	//currentTask = FOLLOW_GRID;
 	while(runProgram) {
 
 		currentTask = CheckSensors();
+		DrawInfo();
 
 		switch(currentTask) {
 
@@ -168,20 +176,35 @@ void Calibrate()
 	calibratedBlack[CENTER] = Sensor(sensCenter);
 	calibratedBlack[LEFT] = Sensor(sensLeft);
 
+	sprintf(bleutoothTMP, "right = %d\n\r", calibratedBlack[RIGHT]);
+	BlueToothStr(bleutoothTMP);
+	sprintf(bleutoothTMP, "center = %d\n\r", calibratedBlack[CENTER]);
+	BlueToothStr(bleutoothTMP);
+	sprintf(bleutoothTMP, "left = %d\n\r", calibratedBlack[LEFT]);
+	BlueToothStr(bleutoothTMP);
+
 	ClearScreen();
 	TextOut(0, LCD_LINE1, "Let's go!");
 	while( ! ButtonPressed(BTNCENTER, false));
 
 	BlueToothStr("Calibrate finished\n\r");
-	string temp;
-	sprintf(temp, "right = %d\n\r", calibratedBlack[RIGHT]);
-	BlueToothStr(temp);
+	
 	Wait(500);
 }
 
 unsigned char CheckSensors()
 {
 	ReadAllXmegaData();
+
+	// sprintf(bleutoothTMP, "sonarA = %d\n\r", sonarA);
+	// BlueToothStr(bleutoothTMP);
+	// sprintf(bleutoothTMP, "SonarB = %d\n\r", sonarB);
+	// BlueToothStr(bleutoothTMP);
+
+	if((sonarA<SONARA_DETECT_RANGE) && currentTask==FOLLOW_GRID && allowedToCheckForRFID){
+		ScanRFID();
+		allowedToCheckForRFID = false;
+	}
 	return currentTask;
 }
 
@@ -279,17 +302,16 @@ unsigned char FindCorner() {
 }
 
 unsigned char FollowGrid() {
-	DrawInfo();
 	UpdateLine();
 
 	if(lS & center_bm)
 	{
-		OnFwd(motorLeft, 100);
-		OnFwd(motorRight, 85);
+		OnFwd(motorLeft, 50);
+		OnFwd(motorRight, 40);
 	}else
 	{
-		OnFwd(motorLeft, 85);
-		OnFwd(motorRight, 100);
+		OnFwd(motorLeft, 40);
+		OnFwd(motorRight, 50);
 	}
 
 	if((lS & left_bm) && (! leftHold))
@@ -325,6 +347,7 @@ unsigned char FollowGrid() {
 		lastLane = RIGHT;
 
 		BlueToothStr("Lane detected\n\r");
+		allowedToCheckForRFID = true;
 	}
 
 	if(!(lS & left_bm))
@@ -351,26 +374,46 @@ void UpdatePos()
    posUpdateCount++;
 }
 
-void TurnDegrees(unsigned char degrees)
+void TurnDegrees(int degrees)
 {
-	OnFwd(motorLeft, 100);
-	OnFwd(motorRight, 0);
+	if(degrees>0)
+	{
+		OnFwd(motorLeft, 100);
+		OnFwd(motorRight,  0);
+	}else{
+		OnFwd(motorLeft,    0);
+		OnFwd(motorRight, 100);
+	}
 	Wait(420);
 	direction++;
 	if(direction > 3) direction = 0;
 }
 
 void DrawInfo() {
-    //maybe graphics?
-     ClearScreen();
-     TextOut(0, LCD_LINE1, "direction = ");
-     TextOut(0, LCD_LINE2, "X         = ");
-     TextOut(0, LCD_LINE3, "Y         = ");
-     TextOut(0, LCD_LINE4, "task      = ");
-     NumOut(14*5, LCD_LINE1, direction);
-     NumOut(14*5, LCD_LINE2, posX);
-     NumOut(14*5, LCD_LINE3, posY);
-     NumOut(14*5, LCD_LINE4, currentTask);
+	//maybe graphics?
+	TextOut(0, LCD_LINE1, "direction =      ");
+	TextOut(0, LCD_LINE2, "X         =      ");
+	TextOut(0, LCD_LINE3, "Y         =      ");
+	TextOut(0, LCD_LINE4, "task      =      ");
+	TextOut(0, LCD_LINE5, "SonarA    =      ");
+	TextOut(0, LCD_LINE6, "SonarB    =      ");
+	NumOut(14*5, LCD_LINE1, direction);
+	NumOut(14*5, LCD_LINE2, posX);
+	NumOut(14*5, LCD_LINE3, posY);
+	NumOut(14*5, LCD_LINE4, currentTask);
+	NumOut(14*5, LCD_LINE5, sonarA);
+	NumOut(14*5, LCD_LINE6, sonarB);
+
+	
+	// sprintf(bleutoothTMP, "direction = %d\n\r", direction);
+	// BlueToothStr(bleutoothTMP);	
+	// sprintf(bleutoothTMP, "X = %d\n\r", posX);
+	// BlueToothStr(bleutoothTMP);
+	// sprintf(bleutoothTMP, "Y = %d\n\r", posY);
+	// BlueToothStr(temp);
+	// sprintf(bleutoothTMP, "taks = %d\n\r", currentTask);
+	// BlueToothStr(bleutoothTMP);
+	
 }
 
 bool BlueToothStr(string str) {
@@ -421,4 +464,47 @@ void ConfirmRFID(void)
 	
 	I2CBytes(S4, writeToTWI, bytesToRead, readFromTWI);
 	RFIDDetect = 0;
+}
+
+unsigned char ScanRFID(void)
+{
+	OnRev(motorLeft,  50); //backup
+	OnRev(motorRight, 50);
+	Wait(700);
+
+	OnFwd(motorLeft, 45); //turn  right
+	OnFwd(motorRight, 0);
+	while(sonarB>SONARA_DETECT_RANGE){
+		ReadAllXmegaData();
+	}
+
+	OnFwd(motorLeft,  35); //forward
+	OnFwd(motorRight, 35);
+	while(sonarB>4){
+		ReadAllXmegaData();
+	}
+
+
+	OnFwd(motorLeft,  35); //forward some more for RFID
+	OnFwd(motorRight, 35);
+	Wait(400);
+
+	ReadAllXmegaData();
+	if(RFIDDetect){
+		ConfirmRFID();
+		PlayTone(800, 100);
+	}
+	
+	OnRev(motorLeft,  35); //backup
+	OnRev(motorRight, 35);
+	while(!(lS & left_bm)){
+		UpdateLine();
+	}
+
+	OnFwd(motorLeft,   0); //turn  left
+	OnFwd(motorRight, 45);
+	while(!(lS & center_bm)){
+		UpdateLine();
+	}
+
 }
