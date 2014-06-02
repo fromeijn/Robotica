@@ -407,6 +407,7 @@ void DrawInfo() {
 bool BlueToothStr(string str) {
 
 	//string newStr;
+	
 
      unsigned char strBuf[128];
      StrToByteArray(str, strBuf);
@@ -415,14 +416,15 @@ bool BlueToothStr(string str) {
 }
 
 bool BlueToothSend(unsigned char messageId, unsigned char &data[]) {
-
-	if(BluetoothStatus(CONN_BT0) != NO_ERR) {
+for(int i = 0; i < 4; i++) {
+ if(BluetoothStatus(i) != NO_ERR) {
 
 		return true;
 
 	}
 
-	BluetoothWrite(CONN_BT0, data);
+	BluetoothWrite(i, data);
+	}
 	
 }
 
