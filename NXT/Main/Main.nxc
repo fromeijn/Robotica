@@ -54,7 +54,7 @@ bool pauseFreeGrid = false;
 bool leftHold = false;
 bool centerHold = false;
 bool rightHold = false;
-bool allowedToCheckForRFID = false;
+bool allowedToCheckForRFID = true;
 
 unsigned char numCornerFound = 0;
 
@@ -180,7 +180,7 @@ void Calibrate()
 	TextOut(0, LCD_LINE1, "Let's go!");
 	while( ! ButtonPressed(BTNCENTER, false));
 
-	BlueToothStr("Calibrate finished\n\r");
+	//BlueToothStr("Calibrate finished\n\r");
 	
 	Wait(500);
 }
@@ -234,7 +234,7 @@ unsigned char GetBackToLine() {
 			_centerHold = false;
 			if( (CurrentTick() - lastTick) < 230) {
 				stabilized = true;
-				BlueToothStr("Back on grid\n\r");
+				//BlueToothStr("Back on grid\n\r");
 
 			} else {
 				OnFwd(motorLeft, 30);
@@ -262,13 +262,13 @@ unsigned char FindCorner() {
 	} else {
 
 		if(CurrentTick() - lastTick > 550) {
-			BlueToothStr("Grid lost\n\r");
+			//BlueToothStr("Grid lost\n\r");
 			GetBackToLine();
 
 			
 			numCornerFound++;
 			if(numCornerFound >= 2) {
-				BlueToothStr("Found corner, follow grid\n\r");
+				//BlueToothStr("Found corner, follow grid\n\r");
 				return FOLLOW_GRID;
 
 			}
@@ -294,12 +294,12 @@ unsigned char FollowGrid() {
 
 	if(lS & center_bm)
 	{
-		OnFwd(motorLeft, 50);
-		OnFwd(motorRight, 40);
+		OnFwd(motorLeft, 60);
+		OnFwd(motorRight, 50);
 	}else
 	{
-		OnFwd(motorLeft, 40);
-		OnFwd(motorRight, 50);
+		OnFwd(motorLeft, 50);
+		OnFwd(motorRight, 60);
 	}
 
 	if((lS & left_bm) && (! leftHold))
@@ -334,7 +334,7 @@ unsigned char FollowGrid() {
 		rightHold = true;
 		lastLane = RIGHT;
 
-		BlueToothStr("Lane detected\n\r");
+		//BlueToothStr("Lane detected\n\r");
 		allowedToCheckForRFID = true;
 	}
 
@@ -462,7 +462,7 @@ unsigned char ScanRFID(void)
 	OnRev(motorRight, 50);
 	Wait(700);
 
-	OnFwd(motorLeft, 45); //turn  right
+	OnFwd(motorLeft, 30); //turn  right
 	OnFwd(motorRight, 0);
 	while(sonarB>SONARA_DETECT_RANGE+10){
 		ReadAllXmegaData();
@@ -471,15 +471,16 @@ unsigned char ScanRFID(void)
 
 	OnFwd(motorLeft,  35); //forward
 	OnFwd(motorRight, 35);
-	while(sonarB>10){
+	while(sonarB>5 || !RFIDDetect){
 		ReadAllXmegaData();
 		DrawInfo();
 	}
 
-
-	OnFwd(motorLeft,  35); //forward some more for RFID
-	OnFwd(motorRight, 35);
-	Wait(400);
+	if(!RFIDDetect){
+		OnFwd(motorLeft,  35); //forward some more for RFID
+		OnFwd(motorRight, 35);
+		Wait(400);
+	}
 
 	ReadAllXmegaData();
 	if(RFIDDetect){
