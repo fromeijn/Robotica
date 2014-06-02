@@ -10,8 +10,8 @@
 #define FIND_CORNER 0
 #define FOLLOW_GRID 1
 
-#define SONARA_DETECT_RANGE 20
-#define SONARB_DETECT_RANGE 20
+#define SONARA_DETECT_RANGE 25
+#define SONARB_DETECT_RANGE 25
 
 #define SLAVE_ADDRESS 0x02 //address slave Xmega (0x01 in atmelstudio)
 #define RFID_DETECT_ADDRESS 0x00
@@ -25,8 +25,8 @@
 #define SONAR_A_BYTES 2
 #define SONAR_B_BYTES 2
 
-byte RFIDDetect;
-byte RFIDNumber[10];
+byte RFIDDetect = 0;
+byte RFIDNumber[RFID_NUMBER_BYTES];
 int sonarA = 0;
 int sonarB = 0;
 
@@ -40,6 +40,7 @@ unsigned char posX = 0;
 unsigned char posY = 0;
 
 unsigned char gridObjects[5][5];
+unsigned char objectRfidTranslate[6];
 
 unsigned char grid_size_x= 5;
 unsigned char grid_size_y = 5;	
@@ -88,6 +89,8 @@ bool BlueToothStr(string str);
 bool BlueToothSend(unsigned char messageId, unsigned char &data[]);
 void ReadAllXmegaData(void);
 void ConfirmRFID(void);
+void DrawGrid(void);
+unsigned char returnRfidNum(byte in);
 
 
 task main() {
@@ -95,14 +98,15 @@ task main() {
 	Init(OUT_B, OUT_A, S3, S2, S1, S4);
   	Calibrate();
 	runProgram = true;
+	ConfirmRFID();
 
 	Start(); // Last program initialisation
-	currentTask = FOLLOW_GRID;
+	//currentTask = FIND_CORNER;
 	while(runProgram) {
 
 		currentTask = CheckSensors();
-		DrawInfo();
-
+		DrawGrid();
+		//DrawInfo();
 		switch(currentTask) {
 
 			case FIND_CORNER:
@@ -121,19 +125,46 @@ task main() {
 void DrawGrid() {
 
 	for(int bloky = 0; bloky<5; bloky++){
-	   for(blokx = 0; blokx<5; blokx++){
+	   for(int blokx = 0; blokx<5; blokx++){
 	        RectOut(23+10*blokx, 7+10*bloky, 10, 10);
 	   }
 	 }
 
 
-	 for(int locy = ; locy<5; locy++){
-	   for(locx = 0; locx<5; locx++){
-	     if(gridObjects[locx][locy] == 1) {
-	        CircleOut(28+10*locx, 12+10*locy, 3, 0x0020);
+	 for(int locy = 0; locy<5; locy++){
+	   for(int locx = 0; locx<5; locx++){
+	     if (gridObjects[locx][locy] == 1) {
+	        TextOut(26+10*locx, 8+10*locy, "1");
+	     } else if (gridObjects[locx][locy] == 2){
+	        TextOut(26+10*locx, 8+10*locy, "2");
+	     } else if (gridObjects[locx][locy] == 3){
+	        TextOut(26+10*locx, 8+10*locy, "3");
+	     } else if (gridObjects[locx][locy] == 4){
+	        TextOut(26+10*locx, 8+10*locy, "4");
+	     } else if (gridObjects[locx][locy] == 5){
+	        TextOut(26+10*locx, 8+10*locy, "5");
+	     } else if (gridObjects[locx][locy] == 6){
+	        TextOut(26+10*locx, 8+10*locy, "6");
 	     }
 	  }
 	 }
+
+	 NumOut(0, LCD_LINE8, posUpdateCount);
+
+}
+
+unsigned char returnRfidNum(byte in) {
+
+	switch(in) {
+
+		case '1': return 1;
+		case '2': return 2;
+		case 'A': return 3;
+		case 'E': return 4;
+		case '9': return 5;
+		case 'C': return 6;
+
+	}
 
 }
 
@@ -315,12 +346,12 @@ unsigned char FollowGrid() {
 
 	if(lS & center_bm)
 	{
-		OnFwd(motorLeft, 50);
-		OnFwd(motorRight, 40);
+		OnFwd(motorLeft, 80);
+		OnFwd(motorRight, 60);
 	}else
 	{
-		OnFwd(motorLeft, 40);
-		OnFwd(motorRight, 50);
+		OnFwd(motorLeft, 60);
+		OnFwd(motorRight, 80);
 	}
 
 	if((lS & left_bm) && (! leftHold))
@@ -332,7 +363,7 @@ unsigned char FollowGrid() {
 	if((lS & right_bm) && (! rightHold))
 	{
 
- 		UpdatePos();
+		posUpdateCount++;
 		switch(posUpdateCount)
 		{
 			case 5: TurnDegrees(90);
@@ -351,12 +382,16 @@ unsigned char FollowGrid() {
 			break;
 			case 31: TurnDegrees(90);
 			break;
+			default: 
+				UpdatePos();
+				allowedToCheckForRFID = true;
+
+			break;
 		}
 		rightHold = true;
 		lastLane = RIGHT;
 
-		BlueToothStr("Lane detected\n\r");
-		allowedToCheckForRFID = true;
+		//BlueToothStr("Lane detected\n\r");
 	}
 
 	if(!(lS & left_bm))
@@ -380,7 +415,7 @@ void UpdatePos()
 	if(direction == SOUTH) posY--;
 	if(direction == WEST) posX--;
 	
-   posUpdateCount++;
+   //posUpdateCount++;
 }
 
 void TurnDegrees(int degrees)
@@ -388,12 +423,12 @@ void TurnDegrees(int degrees)
 	if(degrees>0)
 	{
 		OnFwd(motorLeft, 100);
-		OnFwd(motorRight,  0);
+		OnFwd(motorRight, 25);
 	}else{
-		OnFwd(motorLeft,    0);
+		OnFwd(motorLeft,    25);
 		OnFwd(motorRight, 100);
 	}
-	Wait(420);
+	Wait(680);
 	direction++;
 	if(direction > 3) direction = 0;
 }
@@ -479,35 +514,38 @@ void ConfirmRFID(void)
 
 unsigned char ScanRFID(void)
 {
+	ConfirmRFID();
 	OnRev(motorLeft,  50); //backup
 	OnRev(motorRight, 50);
-	Wait(700);
+	Wait(400);
 
-	OnFwd(motorLeft, 45); //turn  right
+	OnFwd(motorLeft, 33); //turn  right
 	OnFwd(motorRight, 0);
 	while(sonarB>SONARA_DETECT_RANGE+10){
 		ReadAllXmegaData();
-		DrawInfo();
+		//DrawInfo();
 	}
 
 	OnFwd(motorLeft,  35); //forward
 	OnFwd(motorRight, 35);
-	while(sonarB>10){
+	while(!RFIDDetect){
 		ReadAllXmegaData();
-		DrawInfo();
+		//DrawInfo();
 	}
 
+	gridObjects[posX][posY] = returnRfidNum( RFIDNumber[8]); //objectRfidTranslate[RFIDNumber[10]];
 
-	OnFwd(motorLeft,  35); //forward some more for RFID
-	OnFwd(motorRight, 35);
-	Wait(400);
+	/*
+	OnFwd(OUT_ABC, 0);
+	ClearScreen();
 
-	ReadAllXmegaData();
-	if(RFIDDetect){
-		ConfirmRFID();
-		PlayTone(800, 100);
-	}
-	
+	NumOut(0, 0, returnRfidNum( RFIDNumber[8]) );
+	Wait(5000);
+	*/
+
+	ConfirmRFID();
+	PlayTone(800, 100);
+
 	OnRev(motorLeft,  35); //backup
 	OnRev(motorRight, 35);
 	while(!(lS & left_bm)){
