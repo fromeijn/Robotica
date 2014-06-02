@@ -54,7 +54,7 @@ bool pauseFreeGrid = false;
 bool leftHold = false;
 bool centerHold = false;
 bool rightHold = false;
-bool allowedToCheckForRFID = true;
+bool allowedToCheckForRFID = false;
 
 unsigned char numCornerFound = 0;
 
@@ -95,7 +95,7 @@ task main() {
 	runProgram = true;
 
 	Start(); // Last program initialisation
-	//currentTask = FOLLOW_GRID;
+	currentTask = FOLLOW_GRID;
 	while(runProgram) {
 
 		currentTask = CheckSensors();
@@ -169,19 +169,12 @@ void Calibrate()
 {
 	ClearScreen();
 	TextOut(0, LCD_LINE1, "Calibrate black");
-	while( ! ButtonPressed(BTNCENTER, false));
+	//while( ! ButtonPressed(BTNCENTER, false));
 
 	Wait(500);
 	calibratedBlack[RIGHT] = Sensor(sensRight);
 	calibratedBlack[CENTER] = Sensor(sensCenter);
 	calibratedBlack[LEFT] = Sensor(sensLeft);
-
-	sprintf(bleutoothTMP, "right = %d\n\r", calibratedBlack[RIGHT]);
-	BlueToothStr(bleutoothTMP);
-	sprintf(bleutoothTMP, "center = %d\n\r", calibratedBlack[CENTER]);
-	BlueToothStr(bleutoothTMP);
-	sprintf(bleutoothTMP, "left = %d\n\r", calibratedBlack[LEFT]);
-	BlueToothStr(bleutoothTMP);
 
 	ClearScreen();
 	TextOut(0, LCD_LINE1, "Let's go!");
@@ -195,11 +188,6 @@ void Calibrate()
 unsigned char CheckSensors()
 {
 	ReadAllXmegaData();
-
-	// sprintf(bleutoothTMP, "sonarA = %d\n\r", sonarA);
-	// BlueToothStr(bleutoothTMP);
-	// sprintf(bleutoothTMP, "SonarB = %d\n\r", sonarB);
-	// BlueToothStr(bleutoothTMP);
 
 	if((sonarA<SONARA_DETECT_RANGE) && currentTask==FOLLOW_GRID && allowedToCheckForRFID){
 		ScanRFID();
@@ -474,14 +462,16 @@ unsigned char ScanRFID(void)
 
 	OnFwd(motorLeft, 45); //turn  right
 	OnFwd(motorRight, 0);
-	while(sonarB>SONARA_DETECT_RANGE){
+	while(sonarB>SONARA_DETECT_RANGE+10){
 		ReadAllXmegaData();
+		DrawInfo();
 	}
 
 	OnFwd(motorLeft,  35); //forward
 	OnFwd(motorRight, 35);
-	while(sonarB>4){
+	while(sonarB>10){
 		ReadAllXmegaData();
+		DrawInfo();
 	}
 
 
