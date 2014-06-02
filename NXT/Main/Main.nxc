@@ -39,6 +39,8 @@ unsigned char direction = 0;
 unsigned char posX = 0;
 unsigned char posY = 0;
 
+unsigned char gridObjects[5][5];
+
 unsigned char grid_size_x= 5;
 unsigned char grid_size_y = 5;	
 
@@ -114,6 +116,25 @@ task main() {
 		}
 
 	}
+}
+
+void DrawGrid() {
+
+	for(int bloky = 0; bloky<5; bloky++){
+	   for(blokx = 0; blokx<5; blokx++){
+	        RectOut(23+10*blokx, 7+10*bloky, 10, 10);
+	   }
+	 }
+
+
+	 for(int locy = ; locy<5; locy++){
+	   for(locx = 0; locx<5; locx++){
+	     if(gridObjects[locx][locy] == 1) {
+	        CircleOut(28+10*locx, 12+10*locy, 3, 0x0020);
+	     }
+	  }
+	 }
+
 }
 
 void Init(unsigned char _motorLeft, unsigned char _motorRight, unsigned char _sensLeft, unsigned char _sensCenter unsigned char _sensRight, unsigned char _sensXMega) {
