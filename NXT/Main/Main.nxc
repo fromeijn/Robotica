@@ -478,13 +478,17 @@ void TurnDegrees(int degrees)
 		OnFwd(motorLeft, 100);
 		OnFwd(motorRight, 25);
 		//Wait(720);//leeg
-		Wait(740);//vol
+		//Wait(740);//vol
+		Wait(600); 				//wacht totdat de linker sensor over 2 lijnen heen is
+		until(lS & left_bm); 	//wacht totdat de linker sensor de lijn ziet
 		direction++;
 	}else{
 		OnFwd(motorLeft,    25);
 		OnFwd(motorRight, 100);
 		//Wait(670);//leeg
-		Wait(650);//vol
+		//Wait(650);//vol
+		Wait(580); 				//wacht totdat de linker sensor over 2 lijnen heen is
+		until(lS & left_bm); 	//wacht totdat de linker sensor de lijn ziet
 		direction--;
 	}
 	if(direction > 3) direction = 0;
