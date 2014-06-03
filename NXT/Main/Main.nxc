@@ -12,6 +12,9 @@
 
 #define SONARA_DETECT_RANGE 25
 #define SONARB_DETECT_RANGE 25
+#define RFID_SCAN_RANGE 2
+
+#define NO_RFID_SCANNED 9
 
 #define SLAVE_ADDRESS 0x02 //address slave Xmega (0x01 in atmelstudio)
 #define RFID_DETECT_ADDRESS 0x00
@@ -92,7 +95,6 @@ void ConfirmRFID(void);
 void DrawGrid(void);
 unsigned char returnRfidNum(byte in);
 
-
 task main() {
 
 	Init(OUT_B, OUT_A, S3, S2, S1, S4);
@@ -145,7 +147,10 @@ void DrawGrid() {
 	        TextOut(26+10*locx, 8+10*locy, "5");
 	     } else if (gridObjects[locx][locy] == 6){
 	        TextOut(26+10*locx, 8+10*locy, "6");
+	     } else if (gridObjects[locx][locy] == NO_RFID_SCANNED){
+	        TextOut(26+10*locx, 8+10*locy, "0");
 	     }
+
 	  }
 	 }
 
@@ -346,21 +351,12 @@ unsigned char FollowGrid() {
 
 	if(lS & center_bm)
 	{
-<<<<<<< HEAD
 		OnFwd(motorLeft, 80);
 		OnFwd(motorRight, 60);
 	}else
 	{
 		OnFwd(motorLeft, 60);
 		OnFwd(motorRight, 80);
-=======
-		OnFwd(motorLeft, 60);
-		OnFwd(motorRight, 50);
-	}else
-	{
-		OnFwd(motorLeft, 50);
-		OnFwd(motorRight, 60);
->>>>>>> FETCH_HEAD
 	}
 
 	if((lS & left_bm) && (! leftHold))
@@ -401,10 +397,6 @@ unsigned char FollowGrid() {
 		lastLane = RIGHT;
 
 		//BlueToothStr("Lane detected\n\r");
-<<<<<<< HEAD
-=======
-		allowedToCheckForRFID = true;
->>>>>>> FETCH_HEAD
 	}
 
 	if(!(lS & left_bm))
@@ -527,53 +519,36 @@ void ConfirmRFID(void)
 
 unsigned char ScanRFID(void)
 {
-	ConfirmRFID();
+	ConfirmRFID(); //clear RFID bit to be sure
+
 	OnRev(motorLeft,  50); //backup
 	OnRev(motorRight, 50);
 	Wait(400);
 
-<<<<<<< HEAD
-	OnFwd(motorLeft, 33); //turn  right
-=======
 	OnFwd(motorLeft, 30); //turn  right
->>>>>>> FETCH_HEAD
 	OnFwd(motorRight, 0);
 	while(sonarB>SONARA_DETECT_RANGE+10){
 		ReadAllXmegaData();
-		//DrawInfo();
 	}
 
 	OnFwd(motorLeft,  35); //forward
 	OnFwd(motorRight, 35);
-<<<<<<< HEAD
-	while(!RFIDDetect){
-=======
-	while(sonarB>5 || !RFIDDetect){
->>>>>>> FETCH_HEAD
+
+	while(sonarB>RFID_SCAN_RANGE && RFIDDetect){
 		ReadAllXmegaData();
-		//DrawInfo();
 	}
 
-<<<<<<< HEAD
-	gridObjects[posX][posY] = returnRfidNum( RFIDNumber[8]); //objectRfidTranslate[RFIDNumber[10]];
-
-	/*
-	OnFwd(OUT_ABC, 0);
-	ClearScreen();
-
-	NumOut(0, 0, returnRfidNum( RFIDNumber[8]) );
-	Wait(5000);
-	*/
-
-	ConfirmRFID();
-	PlayTone(800, 100);
-=======
-	if(!RFIDDetect){
-		OnFwd(motorLeft,  35); //forward some more for RFID
-		OnFwd(motorRight, 35);
-		Wait(400);
+	if (RFIDDetect)
+	{
+		gridObjects[posX][posY] = returnRfidNum(RFIDNumber[8]);
+		ConfirmRFID();
+		PlayTone(800, 100);
 	}
->>>>>>> FETCH_HEAD
+	else
+	{
+		gridObjects[posX][posY] = NO_RFID_SCANNED;
+		PlayTone(500, 100);
+	}
 
 	OnRev(motorLeft,  35); //backup
 	OnRev(motorRight, 35);
