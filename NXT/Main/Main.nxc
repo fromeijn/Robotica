@@ -38,7 +38,7 @@ string bleutoothTMP;
 
 bool runProgram;
 
-unsigned char direction = 0;
+char direction = 0;
 unsigned char posX = 0;
 unsigned char posY = 0;
 
@@ -52,7 +52,7 @@ unsigned char left_bm = 1 << 2;
 unsigned char center_bm = 1 << 1;
 unsigned char right_bm = 1 << 0;
 
-unsigned char posUpdateCount = 0;
+unsigned char posUpdateCount = 32;
 
 bool executeFreeGrid = true;
 bool pauseFreeGrid = false;
@@ -79,6 +79,8 @@ unsigned char calibratedBlack[3];
 void Init(unsigned char _motorLeft, unsigned char _motorRight, unsigned char _sensLeft, unsigned char _sensCenter unsigned char _sensRight, unsigned char _sensXMega);
 void Start(void);
 void UpdateLine(void);
+bool detectLane(void);
+bool confirmLane(void);
 unsigned char CheckSensors();
 unsigned char FindCorner(void);
 unsigned char FollowGrid(void);
@@ -103,7 +105,7 @@ task main() {
 	ConfirmRFID();
 
 	Start(); // Last program initialisation
-	//currentTask = FIND_CORNER;
+	currentTask = FOLLOW_GRID;
 	while(runProgram) {
 
 		currentTask = CheckSensors();
@@ -246,10 +248,10 @@ unsigned char CheckSensors()
 {
 	ReadAllXmegaData();
 
-	if((sonarA<SONARA_DETECT_RANGE) && currentTask==FOLLOW_GRID && allowedToCheckForRFID){
-		ScanRFID();
-		allowedToCheckForRFID = false;
-	}
+	// if((sonarA<SONARA_DETECT_RANGE) && currentTask==FOLLOW_GRID && allowedToCheckForRFID){
+	// 	ScanRFID();
+	// 	allowedToCheckForRFID = false;
+	// }
 	return currentTask;
 }
 
@@ -306,6 +308,23 @@ unsigned char GetBackToLine() {
 
 }
 
+bool detectLane() {
+
+	return ((lS & right_bm) && (! rightHold)) || ((lS & left_bm) && (! leftHold));
+
+}
+
+bool confirmLane() {
+
+	rightHold = true;
+	lastLane = RIGHT;
+
+	return true;
+
+}
+
+
+
 unsigned char FindCorner() {
 
   UpdateLine();
@@ -359,13 +378,7 @@ unsigned char FollowGrid() {
 		OnFwd(motorRight, 80);
 	}
 
-	if((lS & left_bm) && (! leftHold))
-	{
-		leftHold = true;
-		lastLane = LEFT;
-	}
-
-	if((lS & right_bm) && (! rightHold))
+	if(detectLane())
 	{
 
 		posUpdateCount++;
@@ -387,16 +400,35 @@ unsigned char FollowGrid() {
 			break;
 			case 31: TurnDegrees(90);
 			break;
+			case 33: TurnDegrees(-90);
+			break;
+			case 35: TurnDegrees(-90);
+			break;
+			case 38: TurnDegrees(90); TurnDegrees(90);
+				OnFwd(OUT_ABC, 0);
+				while(1);
+			break;
 			default: 
 				UpdatePos();
 				allowedToCheckForRFID = true;
 
 			break;
 		}
-		rightHold = true;
-		lastLane = RIGHT;
+		confirmLane();
 
 		//BlueToothStr("Lane detected\n\r");
+	}
+
+	if((lS & left_bm) && (! leftHold))
+	{
+		leftHold = true;
+		lastLane = LEFT;
+	}
+
+	if((lS & right_bm) && (! rightHold))
+	{
+		rightHold = true;
+		lastLane = RIGHT;
 	}
 
 	if(!(lS & left_bm))
@@ -429,13 +461,16 @@ void TurnDegrees(int degrees)
 	{
 		OnFwd(motorLeft, 100);
 		OnFwd(motorRight, 25);
+		Wait(720);
+		direction++;
 	}else{
 		OnFwd(motorLeft,    25);
 		OnFwd(motorRight, 100);
+		Wait(670);
+		direction--;
 	}
-	Wait(680);
-	direction++;
 	if(direction > 3) direction = 0;
+	if(direction < 0) direction = 3;
 }
 
 void DrawInfo() {
@@ -525,7 +560,7 @@ unsigned char ScanRFID(void)
 	OnRev(motorRight, 50);
 	Wait(400);
 
-	OnFwd(motorLeft, 30); //turn  right
+	OnFwd(motorLeft, 28); //turn  right
 	OnFwd(motorRight, 0);
 	while(sonarB>SONARA_DETECT_RANGE+10){
 		ReadAllXmegaData();
@@ -534,7 +569,7 @@ unsigned char ScanRFID(void)
 	OnFwd(motorLeft,  35); //forward
 	OnFwd(motorRight, 35);
 
-	while(sonarB>RFID_SCAN_RANGE && RFIDDetect){
+	while(sonarB>RFID_SCAN_RANGE && !RFIDDetect){
 		ReadAllXmegaData();
 	}
 
