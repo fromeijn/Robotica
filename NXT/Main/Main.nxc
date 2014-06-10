@@ -26,6 +26,11 @@
 #define SONAR_B_ADDRESS 0x0D
 #define RFID_DETECT_RESET_ADDRES 0x10
 
+#define LINE_ADDRESS_0 0x20
+#define LINE_ADDRESS_1 0x22
+#define LINE_ADDRESS_2 0x24
+#define LINE_ADDRESS_3 0x26
+
 #define RFID_DETECT_BYTES 1
 #define RFID_NUMBER_BYTES 11
 #define SONAR_A_BYTES 2
@@ -35,6 +40,11 @@ byte RFIDDetect = 0;
 byte RFIDNumber[RFID_NUMBER_BYTES];
 int sonarA = 0;
 int sonarB = 0;
+
+int lineSensor0;
+int lineSensor1;
+int lineSensor2;
+int lineSensor3;
 
 unsigned char detectLaneDir = LANE_RIGHT;
 
@@ -98,7 +108,8 @@ void TurnDegrees(int degrees);
 void DrawInfo(void);
 bool BlueToothStr(string str);
 bool BlueToothSend(unsigned char messageId, unsigned char &data[]);
-void ReadAllXmegaData(void);
+void ReadBasicXmegaData(void);
+void ReadLineXmegaData(void);
 void ConfirmRFID(void);
 void DrawGrid(void);
 unsigned char returnRfidNum(byte in);
@@ -254,7 +265,7 @@ void Calibrate()
 
 unsigned char CheckSensors()
 {
-	ReadAllXmegaData();
+	ReadBasicXmegaData();
 
 	if((sonarA<SONARA_DETECT_RANGE) && currentTask==FOLLOW_GRID && allowedToCheckForRFID){
 		ScanRFID();
@@ -553,9 +564,8 @@ for(int i = 0; i < 4; i++) {
 	
 }
 
-void ReadAllXmegaData(void)
+void ReadBasicXmegaData(void)
 {
-
 	byte writeToTWI[1] = { SLAVE_ADDRESS, RFID_DETECT_ADDRESS };
 	byte readFromTWI[];
 	byte bytesToRead = 16;
@@ -569,6 +579,20 @@ void ReadAllXmegaData(void)
 	}
 	sonarA = (readFromTWI[SONAR_A_ADDRESS+1]<<8)+readFromTWI[SONAR_A_ADDRESS];
 	sonarB = (readFromTWI[SONAR_B_ADDRESS+1]<<8)+readFromTWI[SONAR_B_ADDRESS];
+}
+
+void ReadLineXmegaData(void)
+{
+	byte writeToTWI[1] = { SLAVE_ADDRESS, LINE_ADDRESS_0 };
+	byte readFromTWI[];
+	byte bytesToRead = 16;
+
+	I2CBytes(S4, writeToTWI, bytesToRead, readFromTWI);
+
+	lineSensor0 = (readFromTWI[(LINE_ADDRESS_0-LINE_ADDRESS_0)+1]<<8)+readFromTWI[(LINE_ADDRESS_0-LINE_ADDRESS_0)];
+	lineSensor1 = (readFromTWI[(LINE_ADDRESS_1-LINE_ADDRESS_0)+1]<<8)+readFromTWI[(LINE_ADDRESS_1-LINE_ADDRESS_0)];
+	lineSensor2 = (readFromTWI[(LINE_ADDRESS_2-LINE_ADDRESS_0)+1]<<8)+readFromTWI[(LINE_ADDRESS_2-LINE_ADDRESS_0)];
+	lineSensor3 = (readFromTWI[(LINE_ADDRESS_3-LINE_ADDRESS_0)+1]<<8)+readFromTWI[(LINE_ADDRESS_3-LINE_ADDRESS_0)];
 }
 
 void ConfirmRFID(void)
@@ -593,14 +617,14 @@ unsigned char ScanRFID(void)
 	OnFwd(motorRight, 0);
 
 	while(sonarB>SONARA_DETECT_RANGE+5){
-		ReadAllXmegaData();
+		ReadBasicXmegaData();
 	}
 
 	OnFwd(motorLeft,  35); //forward
 	OnFwd(motorRight, 35);
 
 	while(sonarB>RFID_SCAN_RANGE && !RFIDDetect){
-		ReadAllXmegaData();
+		ReadBasicXmegaData();
 	}
 
 	if (RFIDDetect)
