@@ -181,9 +181,10 @@ void TWIC_SlaveProcessData(void)
 		if(twiSlave.receivedData[0] == RFID_DETECT_RESET_ADDRES) TWIOut[RFID_DETECT_ADDRESS] = 0; //card has been read
 	} else if(askbyte == LIGHT_REQUEST_ADDRESS) { // ask for lightsensor information
 		
-		for(uint8_t i = 0; i < 4; i++) {
+		for(uint8_t i = 0; i < 8; i++) {
 			
-			twiSlave.sendData[i] = *lightSensor[i];
+			twiSlave.sendData[i] = *lightSensor[i] & 0x00FF;
+			twiSlave.sendData[i] = *lightSensor[i + 1] >> 8;
 			
 		}
 		
