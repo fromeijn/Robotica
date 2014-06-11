@@ -1,5 +1,5 @@
-usart_driver.d usart_driver.o: .././usart_driver.c .././usart_driver.h \
- .././avr_compiler.h \
+clksys_driver.d clksys_driver.o: .././clksys_driver.c \
+ .././clksys_driver.h .././avr_compiler.h \
  c:\program\ files\ (x86)\atmel\atmel\ toolchain\avr8\ gcc\native\3.4.2.1002\avr8-gnu-toolchain\bin\../lib/gcc/avr/4.7.2/include/stdint.h \
  c:\program\ files\ (x86)\atmel\atmel\ toolchain\avr8\ gcc\native\3.4.2.1002\avr8-gnu-toolchain\bin\../lib/gcc/avr/4.7.2/../../../../avr/include/stdint.h \
  c:\program\ files\ (x86)\atmel\atmel\ toolchain\avr8\ gcc\native\3.4.2.1002\avr8-gnu-toolchain\bin\../lib/gcc/avr/4.7.2/include/stdbool.h \
@@ -20,7 +20,7 @@ usart_driver.d usart_driver.o: .././usart_driver.c .././usart_driver.h \
  c:\program\ files\ (x86)\atmel\atmel\ toolchain\avr8\ gcc\native\3.4.2.1002\avr8-gnu-toolchain\bin\../lib/gcc/avr/4.7.2/../../../../avr/include/util/delay_basic.h \
  c:\program\ files\ (x86)\atmel\atmel\ toolchain\avr8\ gcc\native\3.4.2.1002\avr8-gnu-toolchain\bin\../lib/gcc/avr/4.7.2/../../../../avr/include/math.h
 
-.././usart_driver.h:
+.././clksys_driver.h:
 
 .././avr_compiler.h:
 

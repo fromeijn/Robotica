@@ -17,7 +17,7 @@ Trigger = Port C 3
 Echo   	= Port C 5
 */
 
-#define F_CPU     2000000UL
+#define F_CPU     32000000UL
 
 //Debug
 #define ENABLE_UART_D0  1
@@ -38,6 +38,10 @@ Echo   	= Port C 5
 #define SONAR_A_ADDRESS 0x0B
 #define SONAR_B_ADDRESS 0x0D
 #define RFID_DETECT_RESET_ADDRES 0x10
+#define LIGHT_REQUEST_ADDRESS 16
+
+#define ADC_CH_MUXNEG_GND_gc 0x05 // see table 28-16 au-manual
+#define ADC_CH_MUXNEG_INTGND_gc 0x07 // see table 28-16 au-manual
 
 #define LINE_ADDRESS_0 0x20
 #define LINE_ADDRESS_1 0x22
@@ -49,6 +53,7 @@ Echo   	= Port C 5
 #define SONAR_A_BYTES 2
 #define SONAR_B_BYTES 2
 
+#include "clksys_driver.h"
 #include "uart.h"
 #include "twi_slave_driver.h"
 
@@ -62,21 +67,26 @@ TWI_Slave_t twiSlave;
 char str[256]; //uart debug temp
 uint8_t TWIOut[0xFF]; //TWI out array
 volatile uint8_t sonarSwitch; //for sonar trigger
+volatile uint16_t *lightSensor[4]; // light sensor values
 
 void TWIC_SlaveProcessData(void);
 void init_all(void);
+void set_adcch_input(ADC_CH_t *, uint8_t, uint8_t);
+void init_adc(void);
+void clock_init32MCalibrate(void);
 
 int main(void)
 {
+	clock_init32MCalibrate();
 	init_all();
-	TWIOut[RFID_NUMBER_ADDRESS] = 'N';
-	TWIOut[RFID_NUMBER_ADDRESS+1] = 'o';
-	TWIOut[RFID_NUMBER_ADDRESS+2] = ' ';
-	TWIOut[RFID_NUMBER_ADDRESS+3] = 'D';
-	TWIOut[RFID_NUMBER_ADDRESS+4] = 'a';
-	TWIOut[RFID_NUMBER_ADDRESS+5] = 't';
-	TWIOut[RFID_NUMBER_ADDRESS+6] = 'a';
-	sprintf(str, "UART Connected!!!\n\r");
+	TWIOut[RFID_NUMBER_ADDRESS] =	'N';
+	TWIOut[RFID_NUMBER_ADDRESS+1] =	'o';
+	TWIOut[RFID_NUMBER_ADDRESS+2] =	' ';
+	TWIOut[RFID_NUMBER_ADDRESS+3] =	'D';
+	TWIOut[RFID_NUMBER_ADDRESS+4] =	'a';
+	TWIOut[RFID_NUMBER_ADDRESS+5] =	't';
+	TWIOut[RFID_NUMBER_ADDRESS+6] =	'a';
+	sprintf(str, "UART Connected.\n\r");
 	uart_puts(&uartD0, str);
 	
 	while(1)
@@ -162,12 +172,66 @@ ISR(TCE0_OVF_vect) //trigger sonar, cascading
 void TWIC_SlaveProcessData(void)
 {
 	uint8_t askbyte = twiSlave.receivedData[0];
-	for(uint8_t i = 0; i < 16; i++) //give the right information back
-	{
-		twiSlave.sendData[i] = TWIOut[i+askbyte];
-	}
+	if(askbyte >= 0 && askbyte < 16) { // Ask for sonar and rfid information
+		for(uint8_t i = 0; i < LIGHT_REQUEST_ADDRESS; i++) //give the right information back
+		{
+			twiSlave.sendData[i] = TWIOut[i+askbyte];
+		}
 	
-	if(twiSlave.receivedData[0] == RFID_DETECT_RESET_ADDRES) TWIOut[RFID_DETECT_ADDRESS] = 0; //card has been read
+		if(twiSlave.receivedData[0] == RFID_DETECT_RESET_ADDRES) TWIOut[RFID_DETECT_ADDRESS] = 0; //card has been read
+	} else if(askbyte == LIGHT_REQUEST_ADDRESS) { // ask for lightsensor information
+		
+		for(uint8_t i = 0; i < 4; i++) {
+			
+			twiSlave.sendData[i] = *lightSensor[i];
+			
+		}
+		
+	}
+}
+
+void set_adcch_input(ADC_CH_t *ch, uint8_t pos_pin_gc, uint8_t neg_pin_gc)
+{
+	ch->MUXCTRL = pos_pin_gc | neg_pin_gc;
+	ch->CTRL = ADC_CH_INPUTMODE_SINGLEENDED_gc;
+}
+
+   void init_adc(void)
+   {
+	   PORTA.DIRCLR = PIN4_bm|PIN3_bm|PIN2_bm|PIN1_bm|PIN0_bm; // PA3..0 are input
+	   
+	   lightSensor[0] =  &ADCA.CH0.RES;
+	   lightSensor[1] =  &ADCA.CH1.RES;
+	   lightSensor[2] =  &ADCA.CH2.RES;
+	   lightSensor[3] =  &ADCA.CH3.RES;
+	   
+	   set_adcch_input(&ADCA.CH0, ADC_CH_MUXPOS_PIN1_gc, ADC_CH_MUXNEG_INTGND_gc);
+	   set_adcch_input(&ADCA.CH1, ADC_CH_MUXPOS_PIN2_gc, ADC_CH_MUXNEG_INTGND_gc);
+	   set_adcch_input(&ADCA.CH2, ADC_CH_MUXPOS_PIN3_gc, ADC_CH_MUXNEG_INTGND_gc);
+	   set_adcch_input(&ADCA.CH3, ADC_CH_MUXPOS_PIN4_gc, ADC_CH_MUXNEG_INTGND_gc);
+	   ADCA.CTRLB = ADC_RESOLUTION_12BIT_gc |
+	   (!ADC_CONMODE_bm) |
+	   ADC_FREERUN_bm; // free running mode
+	   ADCA.REFCTRL = ADC_REFSEL_AREFA_gc;
+	   ADCA.PRESCALER = ADC_PRESCALER_DIV512_gc;
+	   ADCA.CTRLA = ADC_ENABLE_bm;
+	   //ADCA.EVCTRL = ADC_SWEEP_0123_gc|ADC_EVSEL_0123_gc|ADC_EVACT_NONE_gc;
+   }
+   
+void clock_init32MCalibrate(void) {
+	
+	// Select 32 kHz crystal and low power mode
+	OSC.XOSCCTRL = ( OSC.XOSCCTRL & ~OSC_XOSCSEL_gm) | OSC_XOSCSEL_32KHz_gc;
+
+	// Switch to calibrated 32MHz oscillator and disable 2 MHz RC oscillator
+	CLKSYS_Enable( OSC_XOSCEN_bm );
+	CLKSYS_Enable( OSC_RC32MEN_bm );
+	do {} while ( CLKSYS_IsReady( OSC_XOSCRDY_bm ) == 0 );
+	do {} while ( CLKSYS_IsReady( OSC_RC32MRDY_bm ) == 0 );
+	CLKSYS_Main_ClockSource_Select( CLK_SCLKSEL_RC32M_gc );
+	CLKSYS_Disable( OSC_RC2MEN_bm );
+	OSC.DFLLCTRL = (OSC.DFLLCTRL & ~OSC_RC32MCREF_gm) | OSC_RC32MCREF_XOSC32K_gc;
+	DFLLRC32M.CTRL |= DFLL_ENABLE_bm;
 }
 
 void init_all(void)
@@ -184,12 +248,12 @@ void init_all(void)
 	TCC1.CTRLB     = TC_WGMODE_NORMAL_gc;
 	TCC1.CTRLA     = TC_CLKSEL_OFF_gc;
 	TCC1.INTCTRLA  = TC_OVFINTLVL_LO_gc;
-	TCC1.PER       = 400;
+	TCC1.PER       = 400 * 16;
 	//sonar request
 	TCE0.CTRLB     = TC_WGMODE_NORMAL_gc;
 	TCE0.CTRLA     = TC_CLKSEL_DIV1024_gc;
 	TCE0.INTCTRLA  = TC_OVFINTLVL_LO_gc;
-	TCE0.PER       = 195;//~10Hz so 5Hz each
+	TCE0.PER       = 195 * 16;//~10Hz so 5Hz each
 	//timer for sonar A
 	PORTC.PIN4CTRL = PORT_ISC_BOTHEDGES_gc;
 	EVSYS.CH0MUX = EVSYS_CHMUX_PORTC_PIN4_gc;
@@ -206,6 +270,8 @@ void init_all(void)
 	TCD1.CTRLA = TC_CLKSEL_DIV1_gc;
 	TCD1.INTCTRLB = TC_CCAINTLVL_LO_gc;
 	TCD1.PER = 0xFFFF;
+	
+	init_adc();
 	
 	// set uart's //
 	init_uart(&uartD0, &USARTD0, F_CPU, D0_BAUD, D0_CLK2X); //debug
