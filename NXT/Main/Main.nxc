@@ -57,7 +57,7 @@ bool pauseFreeGrid = false;
 bool leftHold = false;
 bool centerHold = false;
 bool rightHold = false;
-bool allowedToCheckForRFID = false;
+bool allowedToCheckForRFID = true;
 
 unsigned char numCornerFound = 0;
 
@@ -232,7 +232,7 @@ void Calibrate()
 	TextOut(0, LCD_LINE1, "Let's go!");
 	while( ! ButtonPressed(BTNCENTER, false));
 
-	BlueToothStr("Calibrate finished\n\r");
+	//BlueToothStr("Calibrate finished\n\r");
 	
 	Wait(500);
 }
@@ -286,7 +286,7 @@ unsigned char GetBackToLine() {
 			_centerHold = false;
 			if( (CurrentTick() - lastTick) < 230) {
 				stabilized = true;
-				BlueToothStr("Back on grid\n\r");
+				//BlueToothStr("Back on grid\n\r");
 
 			} else {
 				OnFwd(motorLeft, 30);
@@ -314,13 +314,13 @@ unsigned char FindCorner() {
 	} else {
 
 		if(CurrentTick() - lastTick > 550) {
-			BlueToothStr("Grid lost\n\r");
+			//BlueToothStr("Grid lost\n\r");
 			GetBackToLine();
 
 			
 			numCornerFound++;
 			if(numCornerFound >= 2) {
-				BlueToothStr("Found corner, follow grid\n\r");
+				//BlueToothStr("Found corner, follow grid\n\r");
 				return FOLLOW_GRID;
 
 			}
@@ -346,12 +346,21 @@ unsigned char FollowGrid() {
 
 	if(lS & center_bm)
 	{
+<<<<<<< HEAD
 		OnFwd(motorLeft, 80);
 		OnFwd(motorRight, 60);
 	}else
 	{
 		OnFwd(motorLeft, 60);
 		OnFwd(motorRight, 80);
+=======
+		OnFwd(motorLeft, 60);
+		OnFwd(motorRight, 50);
+	}else
+	{
+		OnFwd(motorLeft, 50);
+		OnFwd(motorRight, 60);
+>>>>>>> FETCH_HEAD
 	}
 
 	if((lS & left_bm) && (! leftHold))
@@ -392,6 +401,10 @@ unsigned char FollowGrid() {
 		lastLane = RIGHT;
 
 		//BlueToothStr("Lane detected\n\r");
+<<<<<<< HEAD
+=======
+		allowedToCheckForRFID = true;
+>>>>>>> FETCH_HEAD
 	}
 
 	if(!(lS & left_bm))
@@ -519,7 +532,11 @@ unsigned char ScanRFID(void)
 	OnRev(motorRight, 50);
 	Wait(400);
 
+<<<<<<< HEAD
 	OnFwd(motorLeft, 33); //turn  right
+=======
+	OnFwd(motorLeft, 30); //turn  right
+>>>>>>> FETCH_HEAD
 	OnFwd(motorRight, 0);
 	while(sonarB>SONARA_DETECT_RANGE+10){
 		ReadAllXmegaData();
@@ -528,11 +545,16 @@ unsigned char ScanRFID(void)
 
 	OnFwd(motorLeft,  35); //forward
 	OnFwd(motorRight, 35);
+<<<<<<< HEAD
 	while(!RFIDDetect){
+=======
+	while(sonarB>5 || !RFIDDetect){
+>>>>>>> FETCH_HEAD
 		ReadAllXmegaData();
 		//DrawInfo();
 	}
 
+<<<<<<< HEAD
 	gridObjects[posX][posY] = returnRfidNum( RFIDNumber[8]); //objectRfidTranslate[RFIDNumber[10]];
 
 	/*
@@ -545,6 +567,13 @@ unsigned char ScanRFID(void)
 
 	ConfirmRFID();
 	PlayTone(800, 100);
+=======
+	if(!RFIDDetect){
+		OnFwd(motorLeft,  35); //forward some more for RFID
+		OnFwd(motorRight, 35);
+		Wait(400);
+	}
+>>>>>>> FETCH_HEAD
 
 	OnRev(motorLeft,  35); //backup
 	OnRev(motorRight, 35);
