@@ -9,10 +9,10 @@ task main()
  int bloky = 0;
 
  locatiearray[0][0] = 1;
- locatiearray[3][0] = 1;
- locatiearray[3][3] = 1;
- locatiearray[4][1] = 1;
- locatiearray[4][4] = 1;
+ locatiearray[3][0] = 4;
+ locatiearray[3][3] = 3;
+ locatiearray[4][1] = 5;
+ locatiearray[4][4] = 6;
 
  for(bloky; bloky<5; bloky++){
    for(blokx; blokx<5; blokx++){
@@ -25,8 +25,18 @@ task main()
 
  for(locy; locy<5; locy++){
    for(locx; locx<5; locx++){
-     if(locatiearray[locx][locy] == 1) {
-        CircleOut(28+10*locx, 12+10*locy, 3, 0x0020);
+     if (locatiearray[locx][locy] == 1) {
+        TextOut(26+10*locx, 8+10*locy, "1");
+     } else if (locatiearray[locx][locy] == 2){
+        TextOut(26+10*locx, 8+10*locy, "2");
+     } else if (locatiearray[locx][locy] == 3){
+        TextOut(26+10*locx, 8+10*locy, "3");
+     } else if (locatiearray[locx][locy] == 4){
+        TextOut(26+10*locx, 8+10*locy, "4");
+     } else if (locatiearray[locx][locy] == 5){
+        TextOut(26+10*locx, 8+10*locy, "5");
+     } else if (locatiearray[locx][locy] == 6){
+        TextOut(26+10*locx, 8+10*locy, "6");
      }
   }
   locx = 0;
