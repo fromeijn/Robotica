@@ -19,6 +19,9 @@ Echo   	= Port C 5
 
 #define F_CPU     32000000UL
 
+// SONAR constants
+#define SONAR_CONSTANT	232
+
 //Debug
 #define ENABLE_UART_D0  1
 #define D0_BAUD			115200
@@ -136,7 +139,7 @@ ISR(TCC1_OVF_vect) //uart delay
 ISR(TCD0_CCA_vect) //sonar A
 {
 	uint16_t time = TCD0.CCA;
-	uint16_t cm = time/116;
+	uint16_t cm = time / SONAR_CONSTANT;
 	TWIOut[SONAR_A_ADDRESS] = cm & 0x00FF;	//LSB
 	TWIOut[SONAR_A_ADDRESS+1] = cm>>8;		//MSB
 	TCD0.CTRLFSET = TC_CMD_RESTART_gc;
@@ -145,7 +148,7 @@ ISR(TCD0_CCA_vect) //sonar A
 ISR(TCD1_CCA_vect) //Sonar B
 {
 	uint16_t time = TCD1.CCA;
-	uint16_t cm = time/116;
+	uint16_t cm = time / SONAR_CONSTANT;
 	TWIOut[SONAR_B_ADDRESS] = cm & 0x00FF;	//LSB
 	TWIOut[SONAR_B_ADDRESS+1] = cm>>8;		//MSB
 	TCD1.CTRLFSET = TC_CMD_RESTART_gc;
@@ -162,9 +165,9 @@ ISR(TCE0_OVF_vect) //trigger sonar, cascading
 	} 
 	else
 	{
-		PORTC.OUTSET = PIN3_bm;
+		PORTE.OUTSET = PIN3_bm;
 		_delay_us(10);
-		PORTC.OUTCLR = PIN3_bm;
+		PORTE.OUTCLR = PIN3_bm;
 		sonarSwitch = 1;
 	}
 }
@@ -172,23 +175,16 @@ ISR(TCE0_OVF_vect) //trigger sonar, cascading
 void TWIC_SlaveProcessData(void)
 {
 	uint8_t askbyte = twiSlave.receivedData[0];
-	if(askbyte >= 0 && askbyte < 16) { // Ask for sonar and rfid information
-		for(uint8_t i = 0; i < LIGHT_REQUEST_ADDRESS; i++) //give the right information back
-		{
-			twiSlave.sendData[i] = TWIOut[i+askbyte];
-		}
 	
-		if(twiSlave.receivedData[0] == RFID_DETECT_RESET_ADDRES) TWIOut[RFID_DETECT_ADDRESS] = 0; //card has been read
-	} else if(askbyte == LIGHT_REQUEST_ADDRESS) { // ask for lightsensor information
-		
-		for(uint8_t i = 0; i < 8; i++) {
-			
-			twiSlave.sendData[i] = *lightSensor[i] & 0x00FF;
-			twiSlave.sendData[i] = *lightSensor[i + 1] >> 8;
-			
-		}
-		
+	for(uint8_t i = 0; i < 16; i++) //give the right information back
+	{
+		twiSlave.sendData[i] = TWIOut[i+askbyte];
 	}
+	
+	if(twiSlave.receivedData[0] == RFID_DETECT_RESET_ADDRES) TWIOut[RFID_DETECT_ADDRESS] = 0; //card has been read
+	
+	PORTE.OUTTGL = PIN0_bm;
+
 }
 
 void set_adcch_input(ADC_CH_t *ch, uint8_t pos_pin_gc, uint8_t neg_pin_gc)
@@ -200,12 +196,12 @@ void set_adcch_input(ADC_CH_t *ch, uint8_t pos_pin_gc, uint8_t neg_pin_gc)
    void init_adc(void)
    {
 	   PORTA.DIRCLR = PIN4_bm|PIN3_bm|PIN2_bm|PIN1_bm|PIN0_bm; // PA3..0 are input
-	   
-	   lightSensor[0] =  &ADCA.CH0.RES;
-	   lightSensor[1] =  &ADCA.CH1.RES;
-	   lightSensor[2] =  &ADCA.CH2.RES;
-	   lightSensor[3] =  &ADCA.CH3.RES;
-	   
+	   /*
+	   TWIOut[16] =  &ADCA.CH0.RES;
+	   TWIOut[17] =  &ADCA.CH1.RES;
+	   TWIOut[18] =  &ADCA.CH2.RES;
+	   TWIOut[19] =  &ADCA.CH3.RES;
+	   */
 	   set_adcch_input(&ADCA.CH0, ADC_CH_MUXPOS_PIN1_gc, ADC_CH_MUXNEG_INTGND_gc);
 	   set_adcch_input(&ADCA.CH1, ADC_CH_MUXPOS_PIN2_gc, ADC_CH_MUXNEG_INTGND_gc);
 	   set_adcch_input(&ADCA.CH2, ADC_CH_MUXPOS_PIN3_gc, ADC_CH_MUXNEG_INTGND_gc);
@@ -238,8 +234,10 @@ void clock_init32MCalibrate(void) {
 void init_all(void)
 {
 	// set port direction //
-	PORTE.DIRSET = PIN0_bm; //debug led
-	PORTC.DIRSET = PIN2_bm|PIN3_bm; //sonar trigger
+	PORTE.DIRSET = PIN0_bm | PIN3_bm; //debug led and sonar trigger
+	PORTC.DIRSET = PIN2_bm; //sonar trigger
+	
+	PORTE.OUTSET = PIN0_bm;
 
 	// set timers //
 	//delay for uart read need other solution
@@ -260,7 +258,7 @@ void init_all(void)
 	EVSYS.CH0MUX = EVSYS_CHMUX_PORTC_PIN4_gc;
 	TCD0.CTRLD = TC_EVACT_PW_gc | TC_EVSEL_CH0_gc;
 	TCD0.CTRLB = TC0_CCAEN_bm | TC_WGMODE_NORMAL_gc;
-	TCD0.CTRLA = TC_CLKSEL_DIV1_gc;
+	TCD0.CTRLA = TC_CLKSEL_DIV8_gc;
 	TCD0.INTCTRLB = TC_CCAINTLVL_LO_gc;
 	TCD0.PER = 0xFFFF;
 	//timer for sonar B
@@ -268,7 +266,7 @@ void init_all(void)
 	EVSYS.CH1MUX = EVSYS_CHMUX_PORTC_PIN5_gc;
 	TCD1.CTRLD = TC_EVACT_PW_gc | TC_EVSEL_CH1_gc;
 	TCD1.CTRLB = TC1_CCAEN_bm | TC_WGMODE_NORMAL_gc;
-	TCD1.CTRLA = TC_CLKSEL_DIV1_gc;
+	TCD1.CTRLA = TC_CLKSEL_DIV8_gc;
 	TCD1.INTCTRLB = TC_CCAINTLVL_LO_gc;
 	TCD1.PER = 0xFFFF;
 	
