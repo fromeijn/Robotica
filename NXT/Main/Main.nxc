@@ -405,7 +405,7 @@ unsigned char FollowGrid() {
 		OnFwd(motorRight, 60);
 	}
 
-	if((lS & left_bm) && (! leftHold))
+	if((lS & left_bm) && (! leftHold)) {
 		OnFwd(motorLeft, 60);
 		OnFwd(motorRight, 50);
 	}else
@@ -580,7 +580,7 @@ for(int i = 0; i < 4; i++) {
 
 void ReadBasicXmegaData(void)
 {
-	byte writeToTWI[1] = { SLAVE_ADDRESS, RFID_DETECT_ADDRESS };
+	byte writeToTWI[2] = { SLAVE_ADDRESS, RFID_DETECT_ADDRESS };
 	byte readFromTWI[];
 	byte bytesToRead = 16;
 
@@ -597,7 +597,7 @@ void ReadBasicXmegaData(void)
 
 void ReadLineXmegaData(void)
 {
-	byte writeToTWI[1] = { SLAVE_ADDRESS, LINE_ADDRESS_0 };
+	byte writeToTWI[2] = { SLAVE_ADDRESS, LINE_ADDRESS_0 };
 	byte readFromTWI[];
 	byte bytesToRead = 16;
 
@@ -630,8 +630,9 @@ unsigned char ScanRFID(void)
 	OnFwd(motorLeft, 30); //turn  right
 	OnFwd(motorRight, 0);
 	while(sonarB>SONARA_DETECT_RANGE+10){
-		ReadAllXmegaData();
+		ReadBasicXmegaData();
 		//DrawInfo();
+	}
 	OnFwd(motorLeft, 40); //turn  right
 	OnFwd(motorRight, 0);
 
@@ -641,13 +642,12 @@ unsigned char ScanRFID(void)
 
 	OnFwd(motorLeft,  35); //forward
 	OnFwd(motorRight, 35);
-	while(!RFIDDetect){
 	while(sonarB>5 || !RFIDDetect){
-		ReadAllXmegaData();
+		ReadBasicXmegaData();
 		//DrawInfo();
 	}
 
-	gridObjects[posX][posY] = returnRfidNum( RFIDNumber[8]); //objectRfidTranslate[RFIDNumber[10]];
+	//gridObjects[posX][posY] = returnRfidNum( RFIDNumber[8]); //objectRfidTranslate[RFIDNumber[10]];
 
 	/*
 	OnFwd(OUT_ABC, 0);
@@ -663,6 +663,7 @@ unsigned char ScanRFID(void)
 		OnFwd(motorLeft,  35); //forward some more for RFID
 		OnFwd(motorRight, 35);
 		Wait(400);
+	}
 
 	while(sonarB>RFID_SCAN_RANGE && !RFIDDetect){
 		ReadBasicXmegaData();
