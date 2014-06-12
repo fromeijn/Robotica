@@ -39,7 +39,7 @@ void ConfirmRFID(void)
 	byte writeToTWI[2] = { SLAVE_ADDRESS,  RFID_DETECT_RESET_ADDRES };
 	byte readFromTWI[];
 	byte bytesToRead = 2;
-
+	
 	I2CBytes(S4, writeToTWI, bytesToRead, readFromTWI);
 	RFIDDetect = 0;
 }
@@ -57,7 +57,7 @@ task main()
 		{
 			ConfirmRFID(); //card has been read
 			PlayTone(500, 100);
-
+			
 		}
 
 		TextOut(0, LCD_LINE2, "Sonar A:      cm");
@@ -71,5 +71,8 @@ task main()
 
     	Wait(100); //for keeping things stable
 	}
-
+	
 }
+
+
+

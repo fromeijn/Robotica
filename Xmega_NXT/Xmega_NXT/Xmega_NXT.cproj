@@ -99,12 +99,6 @@
     <Compile Include="avr_compiler.h">
       <SubType>compile</SubType>
     </Compile>
-    <Compile Include="clksys_driver.c">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="clksys_driver.h">
-      <SubType>compile</SubType>
-    </Compile>
     <Compile Include="Main.c">
       <SubType>compile</SubType>
     </Compile>
