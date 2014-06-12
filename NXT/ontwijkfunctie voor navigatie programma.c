@@ -91,8 +91,6 @@ void ontwijkroutine(void)
  OnFwd(motorRight, 100);
  Wait(1000);
 
-
-
 }
 
 task main()

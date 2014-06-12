@@ -139,7 +139,11 @@ ISR(TCC1_OVF_vect) //uart delay
 ISR(TCD0_CCA_vect) //sonar A
 {
 	uint16_t time = TCD0.CCA;
+<<<<<<< HEAD
 	uint16_t cm = time / SONAR_CONSTANT;
+=======
+	uint16_t cm = time/116*16;
+>>>>>>> FETCH_HEAD
 	TWIOut[SONAR_A_ADDRESS] = cm & 0x00FF;	//LSB
 	TWIOut[SONAR_A_ADDRESS+1] = cm>>8;		//MSB
 	TCD0.CTRLFSET = TC_CMD_RESTART_gc;
@@ -148,7 +152,11 @@ ISR(TCD0_CCA_vect) //sonar A
 ISR(TCD1_CCA_vect) //Sonar B
 {
 	uint16_t time = TCD1.CCA;
+<<<<<<< HEAD
 	uint16_t cm = time / SONAR_CONSTANT;
+=======
+	uint16_t cm = time/116*16;
+>>>>>>> FETCH_HEAD
 	TWIOut[SONAR_B_ADDRESS] = cm & 0x00FF;	//LSB
 	TWIOut[SONAR_B_ADDRESS+1] = cm>>8;		//MSB
 	TCD1.CTRLFSET = TC_CMD_RESTART_gc;
