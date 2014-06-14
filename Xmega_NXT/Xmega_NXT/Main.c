@@ -15,6 +15,19 @@ Echo 	= Port C 4
 Sonar B
 Trigger = Port C 3
 Echo   	= Port C 5
+
+Line Sensor
+0	led	=  Port A 0
+0	ADC	=  Port A 4
+
+1	led	=  Port A 1
+1	ADC	=  Port A 5
+
+2	led	=  Port A 2
+2	ADC	=  Port A 6
+
+3	led	=  Port A 3
+3	ADC	=  Port A 7
 */
 
 #define F_CPU     32000000UL
@@ -46,10 +59,10 @@ Echo   	= Port C 5
 #define ADC_CH_MUXNEG_GND_gc 0x05 // see table 28-16 au-manual
 #define ADC_CH_MUXNEG_INTGND_gc 0x07 // see table 28-16 au-manual
 
-#define LINE_ADDRESS_0 0x20
-#define LINE_ADDRESS_1 0x22
-#define LINE_ADDRESS_2 0x24
-#define LINE_ADDRESS_3 0x26
+#define LINE_ADDRESS_0 0x10
+#define LINE_ADDRESS_1 0x12
+#define LINE_ADDRESS_2 0x14
+#define LINE_ADDRESS_3 0x16
 
 #define RFID_DETECT_BYTES 1
 #define RFID_NUMBER_BYTES 10
@@ -98,6 +111,11 @@ int main(void)
 		uart_puts(&uartD0, str);
 		sprintf(str, "Sonar B = %d cm\n\r", ((TWIOut[SONAR_B_ADDRESS+1]<<8)+TWIOut[SONAR_B_ADDRESS]));
 		uart_puts(&uartD0, str);
+		
+		sprintf(str, "Line Sensor\t%d \t%d \t%d \t%d\n\r", ((TWIOut[LINE_ADDRESS_0+1]<<8)+TWIOut[LINE_ADDRESS_0]), ((TWIOut[LINE_ADDRESS_1+1]<<8)+TWIOut[LINE_ADDRESS_1]), ((TWIOut[LINE_ADDRESS_2+1]<<8)+TWIOut[LINE_ADDRESS_2]), ((TWIOut[LINE_ADDRESS_3+1]<<8)+TWIOut[LINE_ADDRESS_3]));
+		uart_puts(&uartD0, str);
+		
+		PORTA.OUTTGL = PIN0_bm | PIN1_bm | PIN2_bm | PIN3_bm; //line sensor
 
 		_delay_ms(1000);
 	}
@@ -139,11 +157,7 @@ ISR(TCC1_OVF_vect) //uart delay
 ISR(TCD0_CCA_vect) //sonar A
 {
 	uint16_t time = TCD0.CCA;
-<<<<<<< HEAD
 	uint16_t cm = time / SONAR_CONSTANT;
-=======
-	uint16_t cm = time/116*16;
->>>>>>> FETCH_HEAD
 	TWIOut[SONAR_A_ADDRESS] = cm & 0x00FF;	//LSB
 	TWIOut[SONAR_A_ADDRESS+1] = cm>>8;		//MSB
 	TCD0.CTRLFSET = TC_CMD_RESTART_gc;
@@ -152,14 +166,38 @@ ISR(TCD0_CCA_vect) //sonar A
 ISR(TCD1_CCA_vect) //Sonar B
 {
 	uint16_t time = TCD1.CCA;
-<<<<<<< HEAD
 	uint16_t cm = time / SONAR_CONSTANT;
-=======
-	uint16_t cm = time/116*16;
->>>>>>> FETCH_HEAD
 	TWIOut[SONAR_B_ADDRESS] = cm & 0x00FF;	//LSB
 	TWIOut[SONAR_B_ADDRESS+1] = cm>>8;		//MSB
 	TCD1.CTRLFSET = TC_CMD_RESTART_gc;
+}
+
+ISR(ADCA_CH0_vect)
+{
+	uint16_t time = ADCA.CH0.RES;
+	TWIOut[LINE_ADDRESS_0] = time & 0x00FF;	//LSB
+	TWIOut[LINE_ADDRESS_0+1] = time>>8;		//MSB
+}
+
+ISR(ADCA_CH1_vect)
+{
+	uint16_t time = ADCA.CH1.RES;
+	TWIOut[LINE_ADDRESS_1] = time & 0x00FF;	//LSB
+	TWIOut[LINE_ADDRESS_1+1] = time>>8;		//MSB
+}
+
+ISR(ADCA_CH2_vect)
+{
+	uint16_t time = ADCA.CH2.RES;
+	TWIOut[LINE_ADDRESS_2] = time & 0x00FF;	//LSB
+	TWIOut[LINE_ADDRESS_2+1] = time>>8;		//MSB
+}
+
+ISR(ADCA_CH3_vect)
+{
+	uint16_t time = ADCA.CH3.RES;
+	TWIOut[LINE_ADDRESS_3] = time & 0x00FF;	//LSB
+	TWIOut[LINE_ADDRESS_3+1] = time>>8;		//MSB
 }
 
 ISR(TCE0_OVF_vect) //trigger sonar, cascading
@@ -199,28 +237,25 @@ void set_adcch_input(ADC_CH_t *ch, uint8_t pos_pin_gc, uint8_t neg_pin_gc)
 {
 	ch->MUXCTRL = pos_pin_gc | neg_pin_gc;
 	ch->CTRL = ADC_CH_INPUTMODE_SINGLEENDED_gc;
+	ch->INTCTRL = ADC_CH_INTLVL_LO_gc;
+	
 }
 
    void init_adc(void)
    {
-	   PORTA.DIRCLR = PIN4_bm|PIN3_bm|PIN2_bm|PIN1_bm|PIN0_bm; // PA3..0 are input
-	   /*
-	   TWIOut[16] =  &ADCA.CH0.RES;
-	   TWIOut[17] =  &ADCA.CH1.RES;
-	   TWIOut[18] =  &ADCA.CH2.RES;
-	   TWIOut[19] =  &ADCA.CH3.RES;
-	   */
-	   set_adcch_input(&ADCA.CH0, ADC_CH_MUXPOS_PIN1_gc, ADC_CH_MUXNEG_INTGND_gc);
-	   set_adcch_input(&ADCA.CH1, ADC_CH_MUXPOS_PIN2_gc, ADC_CH_MUXNEG_INTGND_gc);
-	   set_adcch_input(&ADCA.CH2, ADC_CH_MUXPOS_PIN3_gc, ADC_CH_MUXNEG_INTGND_gc);
-	   set_adcch_input(&ADCA.CH3, ADC_CH_MUXPOS_PIN4_gc, ADC_CH_MUXNEG_INTGND_gc);
+	   PORTA.DIRCLR = PIN4_bm|PIN5_bm|PIN6_bm|PIN7_bm; // PA4..7 are input
+	   
+	   set_adcch_input(&ADCA.CH0, ADC_CH_MUXPOS_PIN4_gc, ADC_CH_MUXNEG_INTGND_gc);
+	   set_adcch_input(&ADCA.CH1, ADC_CH_MUXPOS_PIN5_gc, ADC_CH_MUXNEG_INTGND_gc);
+	   set_adcch_input(&ADCA.CH2, ADC_CH_MUXPOS_PIN6_gc, ADC_CH_MUXNEG_INTGND_gc);
+	   set_adcch_input(&ADCA.CH3, ADC_CH_MUXPOS_PIN7_gc, ADC_CH_MUXNEG_INTGND_gc);
 	   ADCA.CTRLB = ADC_RESOLUTION_12BIT_gc |
 	   (!ADC_CONMODE_bm) |
 	   ADC_FREERUN_bm; // free running mode
 	   ADCA.REFCTRL = ADC_REFSEL_AREFA_gc;
 	   ADCA.PRESCALER = ADC_PRESCALER_DIV512_gc;
 	   ADCA.CTRLA = ADC_ENABLE_bm;
-	   //ADCA.EVCTRL = ADC_SWEEP_0123_gc|ADC_EVSEL_0123_gc|ADC_EVACT_NONE_gc;
+	   ADCA.EVCTRL = ADC_SWEEP_0123_gc|ADC_EVSEL_0123_gc|ADC_EVACT_NONE_gc;
    }
    
 void clock_init32MCalibrate(void) {
@@ -244,6 +279,7 @@ void init_all(void)
 	// set port direction //
 	PORTE.DIRSET = PIN0_bm | PIN3_bm; //debug led and sonar trigger
 	PORTC.DIRSET = PIN2_bm; //sonar trigger
+	PORTA.DIRSET = PIN0_bm | PIN1_bm | PIN2_bm | PIN3_bm; //line sensor
 	
 	PORTE.OUTSET = PIN0_bm;
 
