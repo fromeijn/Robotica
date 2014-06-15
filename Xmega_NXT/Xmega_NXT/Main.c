@@ -59,10 +59,10 @@ Line Sensor
 #define ADC_CH_MUXNEG_GND_gc 0x05 // see table 28-16 au-manual
 #define ADC_CH_MUXNEG_INTGND_gc 0x07 // see table 28-16 au-manual
 
-#define LINE_ADDRESS_0 0x10
-#define LINE_ADDRESS_1 0x12
-#define LINE_ADDRESS_2 0x14
-#define LINE_ADDRESS_3 0x16
+#define LINE_ADDRESS_0 0x20
+#define LINE_ADDRESS_1 0x22
+#define LINE_ADDRESS_2 0x24
+#define LINE_ADDRESS_3 0x26
 
 #define RFID_DETECT_BYTES 1
 #define RFID_NUMBER_BYTES 10
@@ -82,6 +82,7 @@ TWI_Slave_t twiSlave;
 
 char str[256]; //uart debug temp
 uint8_t TWIOut[0xFF]; //TWI out array
+int baseline_line_0, baseline_line_1, baseline_line_2, baseline_line_3;
 volatile uint8_t sonarSwitch; //for sonar trigger
 volatile uint16_t *lightSensor[4]; // light sensor values
 
@@ -102,9 +103,15 @@ int main(void)
 	TWIOut[RFID_NUMBER_ADDRESS+4] =	'a';
 	TWIOut[RFID_NUMBER_ADDRESS+5] =	't';
 	TWIOut[RFID_NUMBER_ADDRESS+6] =	'a';
-	sprintf(str, "UART Connected.\n\r");
+	sprintf(str, "UART Connected.\n\r");	
 	uart_puts(&uartD0, str);
-	
+	_delay_ms(500);
+	baseline_line_0 = ((TWIOut[LINE_ADDRESS_0+1]<<8)+TWIOut[LINE_ADDRESS_0]);
+	baseline_line_1 = ((TWIOut[LINE_ADDRESS_1+1]<<8)+TWIOut[LINE_ADDRESS_1]);
+	baseline_line_2 = ((TWIOut[LINE_ADDRESS_2+1]<<8)+TWIOut[LINE_ADDRESS_2]);
+	baseline_line_3 = ((TWIOut[LINE_ADDRESS_3+1]<<8)+TWIOut[LINE_ADDRESS_3]);
+	sprintf(str, "Line Base\t%d \t%d \t%d \t%d\n\r", baseline_line_0, baseline_line_1, baseline_line_2, baseline_line_3);
+	uart_puts(&uartD0, str);
 	while(1)
 	{
 		sprintf(str, "Sonar A = %d cm\n\r", ((TWIOut[SONAR_A_ADDRESS+1]<<8)+TWIOut[SONAR_A_ADDRESS]));
@@ -112,12 +119,10 @@ int main(void)
 		sprintf(str, "Sonar B = %d cm\n\r", ((TWIOut[SONAR_B_ADDRESS+1]<<8)+TWIOut[SONAR_B_ADDRESS]));
 		uart_puts(&uartD0, str);
 		
-		sprintf(str, "Line Sensor\t%d \t%d \t%d \t%d\n\r", ((TWIOut[LINE_ADDRESS_0+1]<<8)+TWIOut[LINE_ADDRESS_0]), ((TWIOut[LINE_ADDRESS_1+1]<<8)+TWIOut[LINE_ADDRESS_1]), ((TWIOut[LINE_ADDRESS_2+1]<<8)+TWIOut[LINE_ADDRESS_2]), ((TWIOut[LINE_ADDRESS_3+1]<<8)+TWIOut[LINE_ADDRESS_3]));
+		sprintf(str, "Line Sensor\t%d \t%d \t%d \t%d\n\r", baseline_line_0-((TWIOut[LINE_ADDRESS_0+1]<<8)+TWIOut[LINE_ADDRESS_0]), baseline_line_1-((TWIOut[LINE_ADDRESS_1+1]<<8)+TWIOut[LINE_ADDRESS_1]), baseline_line_2-((TWIOut[LINE_ADDRESS_2+1]<<8)+TWIOut[LINE_ADDRESS_2]), baseline_line_3-((TWIOut[LINE_ADDRESS_3+1]<<8)+TWIOut[LINE_ADDRESS_3]));
 		uart_puts(&uartD0, str);
-		
-		PORTA.OUTTGL = PIN0_bm | PIN1_bm | PIN2_bm | PIN3_bm; //line sensor
 
-		_delay_ms(1000);
+		_delay_ms(250);
 	}
 }
 
@@ -249,10 +254,11 @@ void set_adcch_input(ADC_CH_t *ch, uint8_t pos_pin_gc, uint8_t neg_pin_gc)
 	   set_adcch_input(&ADCA.CH1, ADC_CH_MUXPOS_PIN5_gc, ADC_CH_MUXNEG_INTGND_gc);
 	   set_adcch_input(&ADCA.CH2, ADC_CH_MUXPOS_PIN6_gc, ADC_CH_MUXNEG_INTGND_gc);
 	   set_adcch_input(&ADCA.CH3, ADC_CH_MUXPOS_PIN7_gc, ADC_CH_MUXNEG_INTGND_gc);
+	   
 	   ADCA.CTRLB = ADC_RESOLUTION_12BIT_gc |
 	   (!ADC_CONMODE_bm) |
 	   ADC_FREERUN_bm; // free running mode
-	   ADCA.REFCTRL = ADC_REFSEL_AREFA_gc;
+	   ADCA.REFCTRL = ADC_REFSEL_VCCDIV2_gc;
 	   ADCA.PRESCALER = ADC_PRESCALER_DIV512_gc;
 	   ADCA.CTRLA = ADC_ENABLE_bm;
 	   ADCA.EVCTRL = ADC_SWEEP_0123_gc|ADC_EVSEL_0123_gc|ADC_EVACT_NONE_gc;
@@ -280,6 +286,7 @@ void init_all(void)
 	PORTE.DIRSET = PIN0_bm | PIN3_bm; //debug led and sonar trigger
 	PORTC.DIRSET = PIN2_bm; //sonar trigger
 	PORTA.DIRSET = PIN0_bm | PIN1_bm | PIN2_bm | PIN3_bm; //line sensor
+	PORTA.OUTSET = PIN0_bm | PIN1_bm | PIN2_bm | PIN3_bm; //line sensor
 	
 	PORTE.OUTSET = PIN0_bm;
 
@@ -322,9 +329,9 @@ void init_all(void)
 	
 	// set TWI as slave for NXT //
 	TWI_SlaveInitializeDriver(&twiSlave, &TWIC, TWIC_SlaveProcessData);
-	TWI_SlaveInitializeModule(&twiSlave, SLAVE_ADDRESS, TWI_SLAVE_INTLVL_MED_gc);
+	TWI_SlaveInitializeModule(&twiSlave, SLAVE_ADDRESS, TWI_SLAVE_INTLVL_LO_gc);
 	
 	// Turn on interrupts //
-	PMIC.CTRL = PMIC_LOLVLEN_bm|PMIC_MEDLVLEN_bm;
+	PMIC.CTRL = PMIC_LOLVLEN_bm;
 	sei();
 }	

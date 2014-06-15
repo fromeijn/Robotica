@@ -1,6 +1,7 @@
 #define LEFT 0
 #define CENTER 1
 #define RIGHT 2
+#define RAW 1
 
 #define NORTH 0
 #define EAST 1
@@ -41,10 +42,17 @@ byte RFIDNumber[RFID_NUMBER_BYTES];
 int sonarA = 0;
 int sonarB = 0;
 
-int lineSensor0;
-int lineSensor1;
-int lineSensor2;
-int lineSensor3;
+int lineSensorRight;
+int lineSensorRightOffset;
+
+int lineSensorCenterRight;
+int lineSensorCenterRightOffset;
+
+int lineSensorCenterLeft;
+int lineSensorCenterLeftOffset;
+
+int lineSensorLeft;
+int lineSensorLeftOffset;
 
 unsigned char detectLaneDir = LANE_RIGHT;
 
@@ -91,10 +99,9 @@ unsigned char lS;
 unsigned char blackThreshold;
 unsigned char calibratedBlack[3];
 
-void Init(unsigned char _motorLeft, unsigned char _motorRight, unsigned char _sensLeft, unsigned char _sensCenter unsigned char _sensRight, unsigned char _sensXMega);
+void Init(unsigned char _motorLeft, unsigned char _motorRight, unsigned char _sensXMega);
 void Start(void);
 void StopProgram(void);
-void UpdateLine(void);
 bool detectLane(void);
 bool confirmLane(void);
 unsigned char CheckSensors();
@@ -104,19 +111,17 @@ unsigned char ScanRFID(void);
 unsigned char GetBackToLine(void);
 void Calibrate(void);
 void UpdatePos(void);
-void TurnDegrees(int degrees);
+void Turn(int Dir);
 void DrawInfo(void);
-bool BlueToothStr(string str);
-bool BlueToothSend(unsigned char messageId, unsigned char &data[]);
 void ReadBasicXmegaData(void);
-void ReadLineXmegaData(void);
+void ReadLineXmegaData(bool Raw);
 void ConfirmRFID(void);
 void DrawGrid(void);
 unsigned char returnRfidNum(byte in);
 
 task main() {
 
-	Init(OUT_B, OUT_A, S3, S2, S1, S4);
+	Init(OUT_B, OUT_A, S1);
   	Calibrate();
 	runProgram = true;
 	ConfirmRFID();
@@ -126,7 +131,7 @@ task main() {
 	while(runProgram) {
 
 		currentTask = CheckSensors();
-		DrawGrid();
+		//DrawGrid();
 		//DrawInfo();
 		switch(currentTask) {
 
@@ -141,6 +146,30 @@ task main() {
 		}
 
 	}
+}
+
+void Init(unsigned char _motorLeft, unsigned char _motorRight, unsigned char _sensXMega) {
+
+	motorLeft = _motorLeft;
+	motorRight = _motorRight;
+	sensXMega = _sensXMega;
+
+	showDisplay = false;
+
+	detectLaneDir = LANE_RIGHT;
+
+	currentTask = FOLLOW_GRID;
+
+	OnFwd(motorLeft, 0);
+	OnFwd(motorLeft, 0);
+
+	SetSensorLowspeed(sensXMega);
+}
+
+void SetDisplay(bool show) {
+
+	showDisplay = show;
+
 }
 
 void DrawGrid() {
@@ -192,73 +221,24 @@ unsigned char returnRfidNum(byte in) {
 
 }
 
-void Init(unsigned char _motorLeft, unsigned char _motorRight, unsigned char _sensLeft, unsigned char _sensCenter unsigned char _sensRight, unsigned char _sensXMega) {
-
-	motorLeft = _motorLeft;
-	motorRight = _motorRight;
-	sensLeft = _sensLeft;
-	sensCenter = _sensCenter;
-	sensRight = _sensRight;
-	sensXMega = _sensXMega;
-
-	showDisplay = false;
-	blackThreshold = 17;
-
-	detectLaneDir = LANE_RIGHT;
-
-	calibratedBlack[LEFT] = 35;
-	calibratedBlack[CENTER] = 35;
-	calibratedBlack[RIGHT] = 35;
-
-	currentTask = FIND_CORNER;
-
-	OnFwd(motorLeft, 0);
-	OnFwd(motorLeft, 0);
-
-	SetSensorLight(sensLeft);
-	SetSensorLight(sensCenter);
-	SetSensorLight(sensRight);
-	SetSensorLowspeed(sensXMega);
-
-	BlueToothStr("Init finished\n\r");
-
-}
-
-void SetDisplay(bool show) {
-
-	showDisplay = show;
-
-}
-
 void Start() {
 
 	firstTick = lastTick = CurrentTick();
 }
 
-void UpdateLine() {
-
-  lS = (Sensor(sensLeft) < (calibratedBlack[LEFT] + blackThreshold)) << 2;
-  lS |= (Sensor(sensCenter) < (calibratedBlack[CENTER] + blackThreshold)) << 1;
-  lS |= (Sensor(sensRight) < (calibratedBlack[RIGHT] + blackThreshold)) << 0;
-  
-}
-
 void Calibrate()
 {
-	ClearScreen();
-	TextOut(0, LCD_LINE1, "Calibrate black");
-	//while( ! ButtonPressed(BTNCENTER, false));
-
 	Wait(500);
-	calibratedBlack[RIGHT] = Sensor(sensRight);
-	calibratedBlack[CENTER] = Sensor(sensCenter);
-	calibratedBlack[LEFT] = Sensor(sensLeft);
+	ReadLineXmegaData(RAW);
+
+	lineSensorRightOffset = lineSensorRight;
+	lineSensorCenterRightOffset = lineSensorCenterRight;
+	lineSensorCenterLeftOffset = lineSensorCenterLeft;
+	lineSensorLeftOffset = lineSensorLeft;
 
 	ClearScreen();
 	TextOut(0, LCD_LINE1, "Let's go!");
 	while( ! ButtonPressed(BTNCENTER, false));
-
-	//BlueToothStr("Calibrate finished\n\r");
 	
 	Wait(500);
 }
@@ -266,11 +246,11 @@ void Calibrate()
 unsigned char CheckSensors()
 {
 	ReadBasicXmegaData();
-
-	if((sonarA<SONARA_DETECT_RANGE) && currentTask==FOLLOW_GRID && allowedToCheckForRFID){
-		ScanRFID();
-		allowedToCheckForRFID = false;
-	}
+	ReadLineXmegaData(0);
+	// if((sonarA<SONARA_DETECT_RANGE) && currentTask==FOLLOW_GRID && allowedToCheckForRFID){
+	// 	ScanRFID();
+	// 	allowedToCheckForRFID = false;
+	// }
 	return currentTask;
 }
 
@@ -284,7 +264,7 @@ unsigned char GetBackToLine() {
 	bool foundLine = false;
 	while(! foundLine) {
 
-		UpdateLine();
+		//UpdateLine();
 		if( (lS & left_bm)) {
 
 			foundLine = true;
@@ -296,7 +276,7 @@ unsigned char GetBackToLine() {
 	bool _centerHold = false;
 	bool stabilized = false;
 	while(! stabilized) {
-		UpdateLine();
+		//UpdateLine();
 		if(lS & center_bm) {
 			if(! _centerHold) {
 
@@ -331,11 +311,11 @@ bool detectLane() {
 
 	if(detectLaneDir == LANE_RIGHT) {
 
-		return (lS & right_bm) && (!rightHold);
+		return ((lineSensorRight< -70) && (!rightHold));
 
 	} else {
 
-		return (lS & left_bm) && (!leftHold);
+		return ((lineSensorLeft< -70) && (!leftHold));
 
 	}
 
@@ -354,7 +334,7 @@ bool confirmLane() {
 
 unsigned char FindCorner() {
 
-	UpdateLine();
+	//UpdateLine();
 	
 	if(lS & center_bm) {
 
@@ -393,53 +373,44 @@ unsigned char FindCorner() {
 }
 
 unsigned char FollowGrid() {
-	UpdateLine();
 
-	if(lS & center_bm)
+	if(lineSensorCenterRight>lineSensorCenterLeft) //follow line
 	{
-		OnFwd(motorLeft, 60);
-		OnFwd(motorRight, 50);
+		OnRev(motorLeft, 55);
+		OnRev(motorRight, 50);
 	}else
 	{
-		OnFwd(motorLeft, 50);
-		OnFwd(motorRight, 60);
-	}
+		OnRev(motorLeft, 50);
+		OnRev(motorRight, 55);
+	}	
 
-	if((lS & left_bm) && (! leftHold)) {
-		OnFwd(motorLeft, 60);
-		OnFwd(motorRight, 50);
-	}else
-	{
-		OnFwd(motorLeft, 50);
-		OnFwd(motorRight, 60);
-	}
 
 	if(detectLane())
 	{
-
+		PlayTone(800, 50);
 		posUpdateCount++;
 		switch(posUpdateCount)
 		{
-			case 5: TurnDegrees(90);
+			case 3: Turn(RIGHT); //case 5: TurnDegrees(90);
 			break;
-			case 10: TurnDegrees(90);
+			case 10: Turn(RIGHT);
 			break;
-			case 15: TurnDegrees(90);
+			case 15: Turn(RIGHT);
 			break;
-			case 19: TurnDegrees(90);
+			case 19: Turn(RIGHT);
 			break;
-			case 23: TurnDegrees(90);
+			case 23: Turn(RIGHT);
 			break;
-			case 26: TurnDegrees(90);
+			case 26: Turn(RIGHT);
 			break;
-			case 29: TurnDegrees(90);
+			case 29: Turn(RIGHT);
 			break;
-			case 31: TurnDegrees(90);
+			case 31: Turn(RIGHT);
 			break;
-			case 33: TurnDegrees(-90);
+			case 33: Turn(LEFT);
 			break;
 			case 35: 
-				TurnDegrees(-90);
+				Turn(LEFT);
 				detectLaneDir = LANE_LEFT;
 			break;
 			case 38: StopProgram();
@@ -451,32 +422,30 @@ unsigned char FollowGrid() {
 			break;
 		}
 		confirmLane();
-
-		//BlueToothStr("Lane detected\n\r");
-		allowedToCheckForRFID = true;
 	}
 
-	if((lS & left_bm) && (! leftHold))
+	if(lineSensorLeft< -70 && (!leftHold))
 	{
 		leftHold = true;
 		lastLane = LEFT;
 	}
 
-	if((lS & right_bm) && (! rightHold))
+	if(lineSensorRight< -70 && (!rightHold))
 	{
 		rightHold = true;
 		lastLane = RIGHT;
 	}
 
-	if(!(lS & left_bm))
+	if(lineSensorLeft> -20 && leftHold)
 	{
 		leftHold = false;
 	}
 
-	if(!(lS & right_bm))
+	if(lineSensorRight> -20 && rightHold)
 	{
 		rightHold = false;
 	}
+
 	return currentTask;
 }
 
@@ -492,16 +461,16 @@ void UpdatePos()
    //posUpdateCount++;
 }
 
-void TurnDegrees(int degrees)
+void Turn(int Dir)
 {
-	if(degrees>0)
+	if(Dir = RIGHT)
 	{
-		OnFwd(motorLeft, 100);
-		OnFwd(motorRight, 25);
-		//Wait(720);//leeg
-		//Wait(740);//vol
-		Wait(600); 				//wacht totdat de linker sensor over 2 lijnen heen is
-		until(lS & left_bm); 	//wacht totdat de linker sensor de lijn ziet
+		OnFwd(motorLeft, 30);
+		OnRev(motorRight, 30);
+		Wait(600);
+		while(lineSensorLeft< -70){
+			ReadLineXmegaData(0);
+		}
 		direction++;
 	}else{
 		OnFwd(motorLeft,    25);
@@ -541,41 +510,6 @@ void DrawInfo() {
 	NumOut(14*5, LCD_LINE4, currentTask);
 	NumOut(14*5, LCD_LINE5, sonarA);
 	NumOut(14*5, LCD_LINE6, sonarB);
-
-	
-	// sprintf(bleutoothTMP, "direction = %d\n\r", direction);
-	// BlueToothStr(bleutoothTMP);	
-	// sprintf(bleutoothTMP, "X = %d\n\r", posX);
-	// BlueToothStr(bleutoothTMP);
-	// sprintf(bleutoothTMP, "Y = %d\n\r", posY);
-	// BlueToothStr(temp);
-	// sprintf(bleutoothTMP, "taks = %d\n\r", currentTask);
-	// BlueToothStr(bleutoothTMP);
-	
-}
-
-bool BlueToothStr(string str) {
-
-	//string newStr;
-	
-
-     unsigned char strBuf[128];
-     StrToByteArray(str, strBuf);
-     
-     BlueToothSend(BLUETOOTH_STRING, strBuf);
-}
-
-bool BlueToothSend(unsigned char messageId, unsigned char &data[]) {
-for(int i = 0; i < 4; i++) {
- if(BluetoothStatus(i) != NO_ERR) {
-
-		return true;
-
-	}
-
-	BluetoothWrite(i, data);
-	}
-	
 }
 
 void ReadBasicXmegaData(void)
@@ -584,7 +518,7 @@ void ReadBasicXmegaData(void)
 	byte readFromTWI[];
 	byte bytesToRead = 16;
 
-	I2CBytes(S4, writeToTWI, bytesToRead, readFromTWI);
+	I2CBytes(S1, writeToTWI, bytesToRead, readFromTWI);
 
 	RFIDDetect = readFromTWI[RFID_DETECT_ADDRESS];
 	for(int byteNumber=0; byteNumber<RFID_NUMBER_BYTES; byteNumber++)
@@ -595,18 +529,26 @@ void ReadBasicXmegaData(void)
 	sonarB = (readFromTWI[SONAR_B_ADDRESS+1]<<8)+readFromTWI[SONAR_B_ADDRESS];
 }
 
-void ReadLineXmegaData(void)
+void ReadLineXmegaData(bool Raw)
 {
 	byte writeToTWI[2] = { SLAVE_ADDRESS, LINE_ADDRESS_0 };
 	byte readFromTWI[];
 	byte bytesToRead = 16;
 
-	I2CBytes(S4, writeToTWI, bytesToRead, readFromTWI);
+	I2CBytes(S1, writeToTWI, bytesToRead, readFromTWI);
 
-	lineSensor0 = (readFromTWI[(LINE_ADDRESS_0-LINE_ADDRESS_0)+1]<<8)+readFromTWI[(LINE_ADDRESS_0-LINE_ADDRESS_0)];
-	lineSensor1 = (readFromTWI[(LINE_ADDRESS_1-LINE_ADDRESS_0)+1]<<8)+readFromTWI[(LINE_ADDRESS_1-LINE_ADDRESS_0)];
-	lineSensor2 = (readFromTWI[(LINE_ADDRESS_2-LINE_ADDRESS_0)+1]<<8)+readFromTWI[(LINE_ADDRESS_2-LINE_ADDRESS_0)];
-	lineSensor3 = (readFromTWI[(LINE_ADDRESS_3-LINE_ADDRESS_0)+1]<<8)+readFromTWI[(LINE_ADDRESS_3-LINE_ADDRESS_0)];
+	if(Raw){
+	lineSensorRight 		= (readFromTWI[(LINE_ADDRESS_0-LINE_ADDRESS_0)+1]<<8)+readFromTWI[(LINE_ADDRESS_0-LINE_ADDRESS_0)];
+	lineSensorCenterRight 	= (readFromTWI[(LINE_ADDRESS_1-LINE_ADDRESS_0)+1]<<8)+readFromTWI[(LINE_ADDRESS_1-LINE_ADDRESS_0)];
+	lineSensorCenterLeft 	= (readFromTWI[(LINE_ADDRESS_2-LINE_ADDRESS_0)+1]<<8)+readFromTWI[(LINE_ADDRESS_2-LINE_ADDRESS_0)];
+	lineSensorLeft 			= (readFromTWI[(LINE_ADDRESS_3-LINE_ADDRESS_0)+1]<<8)+readFromTWI[(LINE_ADDRESS_3-LINE_ADDRESS_0)];
+	}
+	else{
+	lineSensorRight 		= (readFromTWI[(LINE_ADDRESS_0-LINE_ADDRESS_0)+1]<<8)+readFromTWI[(LINE_ADDRESS_0-LINE_ADDRESS_0)] - lineSensorRightOffset;
+	lineSensorCenterRight 	= (readFromTWI[(LINE_ADDRESS_1-LINE_ADDRESS_0)+1]<<8)+readFromTWI[(LINE_ADDRESS_1-LINE_ADDRESS_0)] - lineSensorCenterRightOffset;
+	lineSensorCenterLeft 	= (readFromTWI[(LINE_ADDRESS_2-LINE_ADDRESS_0)+1]<<8)+readFromTWI[(LINE_ADDRESS_2-LINE_ADDRESS_0)] - lineSensorCenterLeftOffset;
+	lineSensorLeft 			= (readFromTWI[(LINE_ADDRESS_3-LINE_ADDRESS_0)+1]<<8)+readFromTWI[(LINE_ADDRESS_3-LINE_ADDRESS_0)] - lineSensorLeftOffset;
+	}
 }
 
 void ConfirmRFID(void)
@@ -684,13 +626,13 @@ unsigned char ScanRFID(void)
 	OnRev(motorLeft,  35); //backup
 	OnRev(motorRight, 35);
 	while(!(lS & left_bm)){
-		UpdateLine();
+		//UpdateLine();
 	}
 
 	OnFwd(motorLeft,   0); //turn  left
 	OnFwd(motorRight, 45);
 	while(!(lS & center_bm)){
-		UpdateLine();
+		//UpdateLine();
 	}
 
 }

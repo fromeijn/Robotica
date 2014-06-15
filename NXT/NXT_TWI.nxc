@@ -6,24 +6,31 @@
 #define SONAR_B_ADDRESS 0x0D
 #define RFID_DETECT_RESET_ADDRES 0x10
 
+#define LINE_ADDRESS_0 0x20
+#define LINE_ADDRESS_1 0x22
+#define LINE_ADDRESS_2 0x24
+#define LINE_ADDRESS_3 0x26
+
 #define RFID_DETECT_BYTES 1
 #define RFID_NUMBER_BYTES 11
 #define SONAR_A_BYTES 2
 #define SONAR_B_BYTES 2
 
+
 byte RFIDDetect;
 byte RFIDNumber[10];
 int sonarA;
 int sonarB;
+int lineSensor0, lineSensor1, lineSensor2, lineSensor3;
 
 void ReadAllXmegaData(void)
 {
 
-	byte writeToTWI[1] = { SLAVE_ADDRESS, RFID_DETECT_ADDRESS };
+	byte writeToTWI[2] = { SLAVE_ADDRESS, RFID_DETECT_ADDRESS };
 	byte readFromTWI[];
 	byte bytesToRead = 16;
 
-	I2CBytes(S4, writeToTWI, bytesToRead, readFromTWI);
+	I2CBytes(S1, writeToTWI, bytesToRead, readFromTWI);
 
 	RFIDDetect = readFromTWI[RFID_DETECT_ADDRESS];
 	for(int byteNumber=0; byteNumber<RFID_NUMBER_BYTES; byteNumber++)
@@ -34,23 +41,38 @@ void ReadAllXmegaData(void)
 	sonarB = (readFromTWI[SONAR_B_ADDRESS+1]<<8)+readFromTWI[SONAR_B_ADDRESS];
 }
 
+void ReadLineXmegaData(void)
+{
+	byte writeToTWI[2] = { SLAVE_ADDRESS, LINE_ADDRESS_0 };
+	byte readFromTWI[];
+	byte bytesToRead = 16;
+
+	I2CBytes(S1, writeToTWI, bytesToRead, readFromTWI);
+
+  lineSensor0 = (readFromTWI[(LINE_ADDRESS_0-LINE_ADDRESS_0)+1]<<8)+readFromTWI[(LINE_ADDRESS_0-LINE_ADDRESS_0)];
+	lineSensor1 = (readFromTWI[(LINE_ADDRESS_1-LINE_ADDRESS_0)+1]<<8)+readFromTWI[(LINE_ADDRESS_1-LINE_ADDRESS_0)];
+	lineSensor2 = (readFromTWI[(LINE_ADDRESS_2-LINE_ADDRESS_0)+1]<<8)+readFromTWI[(LINE_ADDRESS_2-LINE_ADDRESS_0)];
+	lineSensor3 = (readFromTWI[(LINE_ADDRESS_3-LINE_ADDRESS_0)+1]<<8)+readFromTWI[(LINE_ADDRESS_3-LINE_ADDRESS_0)];
+}
+
 void ConfirmRFID(void)
 {
 	byte writeToTWI[2] = { SLAVE_ADDRESS,  RFID_DETECT_RESET_ADDRES };
 	byte readFromTWI[];
 	byte bytesToRead = 2;
 
-	I2CBytes(S4, writeToTWI, bytesToRead, readFromTWI);
+	I2CBytes(S1, writeToTWI, bytesToRead, readFromTWI);
 	RFIDDetect = 0;
 }
 
 task main()
 {
-	SetSensorLowspeed(S4); //init TWI
+	SetSensorLowspeed(S1); //init TWI
 
 	while(!FALSE)
 	{
-		ReadAllXmegaData();
+    ReadAllXmegaData();
+    ReadLineXmegaData();
 
 		NumOut(0, LCD_LINE1, RFIDDetect);
 		if(RFIDDetect)
@@ -65,6 +87,15 @@ task main()
 
 		TextOut(0, LCD_LINE3, "Sonar B:      cm");
 		NumOut(12*5, LCD_LINE3, sonarB);
+		
+		TextOut(0, LCD_LINE4, "line 0:      ");
+		NumOut(12*5, LCD_LINE4, lineSensor0);
+		TextOut(0, LCD_LINE5, "line 1:      ");
+		NumOut(12*5, LCD_LINE5, lineSensor1);
+		TextOut(0, LCD_LINE6, "line 2:      ");
+		NumOut(12*5, LCD_LINE6, lineSensor2);
+		TextOut(0, LCD_LINE7, "line 3:      ");
+		NumOut(12*5, LCD_LINE7, lineSensor3);
 
 		TextOut(0, LCD_LINE8, "RFID:");
 		TextOut(8*5, LCD_LINE8, RFIDNumber);
